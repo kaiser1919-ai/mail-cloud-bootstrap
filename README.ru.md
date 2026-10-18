@@ -37,6 +37,8 @@
 На **новой** VPS установи Git/Python, клонируй этот репозиторий в выбранную папку проекта и просмотри код. Затем из корня репозитория:
 
 ```bash
+git clone https://github.com/kaiser1919-ai/mail-cloud-bootstrap.git
+cd mail-cloud-bootstrap
 bash install.sh
 ```
 

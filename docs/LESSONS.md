@@ -31,4 +31,6 @@ Consulted 2026-10-18; the `latest` manuals may describe newer versions than this
 - [Dovecot native LDAP](https://doc.dovecot.org/main/core/config/auth/databases/ldap.html): LDAP authentication configuration.
 - [Rspamd ratelimit](https://docs.rspamd.com/modules/ratelimit/): Redis-backed rate limiting concepts. This project ports the original custom sliding-window policy, **not** a claim to use that module unchanged.
 
+- [Collabora built-in CODE upstream](https://github.com/CollaboraOnline/richdocumentscode): AppImage extraction fallback, fontconfig and resource requirements; not proof of the service unit on a new host.
+
 The installer is a new portability implementation of the original native architecture, not a byte-for-byte copy of a person's production machine. Independent clean-host acceptance remains open.

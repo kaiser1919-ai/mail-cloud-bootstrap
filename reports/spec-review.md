@@ -14,8 +14,7 @@
   **Fix / verification needed:** Run the relevant clean-VPS acceptance checks from docs/OPERATIONS.md; record actual results, fix failures and re-review. Do not change the spec to bypass this gate.
 - [ ] R6: Preflight чистого Debian, последовательные возобновляемые фазы, блокировка параллельного запуска, запрет перезаписи чужого конфигурационного дерева; повторный запуск не форматирует пул и не меняет пароли. Ошибки не считаются успехом. — wizard preflight/lock/private state; storage resume test proves no format command on existing fixture; real interruption/reboot not tested.
   **Fix / verification needed:** Run the relevant clean-VPS acceptance checks from docs/OPERATIONS.md; record actual results, fix failures and re-review. Do not change the spec to bypass this gate.
-- [ ] R7: README.md EN / README.ru.md RU, архитектура, ограничения, исправленные проблемы, эксплуатация/обновления/backup; GitHub CI, локальные тесты, отдельный публичный GitHub-репозиторий с проверкой секретов перед публикацией. — README RU/EN, docs/LESSONS.md, OPERATIONS.md, CI. GitHub publication pending.
-  **Fix / verification needed:** Publish the reviewed isolated source tree; record repository/commit.
+- [x] R7: README.md EN / README.ru.md RU, архитектура, ограничения, исправленные проблемы, эксплуатация/обновления/backup; GitHub CI, локальные тесты, отдельный публичный GitHub-репозиторий с проверкой секретов перед публикацией. — README RU/EN, docs/LESSONS.md, OPERATIONS.md; public repository https://github.com/kaiser1919-ai/mail-cloud-bootstrap; GitHub Actions success for source commit dda054e528ae4fbdd48c5255cf38570e03027afe (run 39142637360).
 
 ## Constraints
 - [x] C1: Не менять production; только новый проект. Не переносить ключи, токены, домены/IP/почту владельца, приватную историю и проприетарные шрифты. — New isolated source tree; forbidden private values/font/key scan, no production commands executed.
@@ -34,10 +33,11 @@
 - [x] D1: Локальные tests и syntax/render проверки проходят, нет персональных данных/секретов. — 26 unit tests PASS; bash/sh syntax and Python compilation PASS; Ansible syntax PASS; all 17 templates rendered using synthetic parameters.
 - [ ] D2: Реальный clean Debian 13 install + повторный запуск + reboot + negative mail/auth/privacy + Office save/reopen проверены; если тестовая VPS недоступна, фиксировать непроверенное и НЕ объявлять готовность. — No disposable clean Debian13 VPS/root authorization provided. Production intentionally not used. See docs/OPERATIONS.md acceptance checklist.
   **Fix / verification needed:** Run the relevant clean-VPS acceptance checks from docs/OPERATIONS.md; record actual results, fix failures and re-review. Do not change the spec to bypass this gate.
-- [ ] D3: Публичный GitHub repo содержит проверенный исходный код, двуязычную документацию и мастер. — Pending publication of isolated source tree; no parent repository files will be pushed.
-  **Fix / verification needed:** Publish the reviewed isolated source tree; record repository/commit.
+- [x] D3: Публичный GitHub repo содержит проверенный исходный код, двуязычную документацию и мастер. — Public source tree published and HTTP200/page content verified; only this standalone repository was pushed, not the parent Sentinel repository. Source safety scan passed for all 65 tracked files.
 
 ## Verdict: FAIL
-Local source checks are green, but requirements R2–R6/E2/E4 and D2 are not accepted without actual installation/runtime tests. R7/D3 publication pending.
+Local source checks are green, but requirements R2–R6/E2/E4 and D2 are not accepted without actual installation/runtime tests. R7/D3 publication and CI verified.
 
 This is a separate requirements-oriented review of current source and exercised local tests, not an independent-agent audit and not a live-server security certification.
+
+Publication is a PREVIEW and does not close D2. Full implementation acceptance remains FAIL until the disposable-VPS checks are complete.

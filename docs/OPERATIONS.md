@@ -89,3 +89,7 @@ These are **pending real-environment tests**, not CI results:
 6. Load/resource/disk-full behavior, mount-loss refusal on **test** host, no hidden writes into underlying root filesystem; independent backup restoration.
 
 Passing a subset cannot be reported as a full acceptance PASS.
+
+## Interrupted bootstrap safety stops
+
+A `.tmp` state file or an image without a UUID seal indicates interruption during a safety-critical write. The master intentionally stops rather than deleting/reformatting it. Inspect it locally as root, verify the corresponding operation completed, and recover state explicitly; never use a blind cleanup command. A normal DNS/download failure does not require resetting state. Rerunning the installation can stop/restart its own services; use it for bootstrap recovery, not as a zero-downtime production update mechanism.

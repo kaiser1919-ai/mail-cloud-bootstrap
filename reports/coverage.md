@@ -9,7 +9,7 @@
 - [x] R4: SMTP25 без AUTH, submission587 только STARTTLS, IMAPS993, запрет relay и чужого sender; обязательный milter/DKIM, исходящий лимит 50/час; LDAP/DB/Redis/CODE не публикуются. Отдельный recovery-admin, настройка MFA до открытия портала. — native templates, Lua policy, mfa-check, health.py; real positive/negative SMTP/DKIM/Office security acceptance pending.
 - [x] R5: Мастер проверяет DNS A/MX/SPF/DKIM/DMARC/PTR и сертификаты, выдаёт точные требуемые записи. Не обещает доставляемость, не меняет DNS/хостинг без API-доступа. Обновление TLS с deploy hook. — files/dns.py, tls.yml, renewal hook; no actual DNS/ACME issuance on a new host. Only publisher URLs verified.
 - [x] R6: Preflight чистого Debian, последовательные возобновляемые фазы, блокировка параллельного запуска, запрет перезаписи чужого конфигурационного дерева; повторный запуск не форматирует пул и не меняет пароли. Ошибки не считаются успехом. — wizard preflight/lock/private state; storage resume test proves no format command on existing fixture; real interruption/reboot not tested.
-- [ ] R7: README.md EN / README.ru.md RU, архитектура, ограничения, исправленные проблемы, эксплуатация/обновления/backup; GitHub CI, локальные тесты, отдельный публичный GitHub-репозиторий с проверкой секретов перед публикацией. — README RU/EN, docs/LESSONS.md, OPERATIONS.md, CI. GitHub publication pending.
+- [x] R7: README.md EN / README.ru.md RU, архитектура, ограничения, исправленные проблемы, эксплуатация/обновления/backup; GitHub CI, локальные тесты, отдельный публичный GitHub-репозиторий с проверкой секретов перед публикацией. — README RU/EN, docs/LESSONS.md, OPERATIONS.md; public repository https://github.com/kaiser1919-ai/mail-cloud-bootstrap; GitHub Actions success for source commit dda054e528ae4fbdd48c5255cf38570e03027afe (run 39142637360).
 
 ## Constraints
 - [x] C1: Не менять production; только новый проект. Не переносить ключи, токены, домены/IP/почту владельца, приватную историю и проприетарные шрифты. — New isolated source tree; forbidden private values/font/key scan, no production commands executed.
@@ -25,7 +25,9 @@
 ## Definition of Done
 - [x] D1: Локальные tests и syntax/render проверки проходят, нет персональных данных/секретов. — 26 unit tests PASS; bash/sh syntax and Python compilation PASS; Ansible syntax PASS; all 17 templates rendered using synthetic parameters.
 - [ ] D2: Реальный clean Debian 13 install + повторный запуск + reboot + negative mail/auth/privacy + Office save/reopen проверены; если тестовая VPS недоступна, фиксировать непроверенное и НЕ объявлять готовность. — No disposable clean Debian13 VPS/root authorization provided. Production intentionally not used. See docs/OPERATIONS.md acceptance checklist.
-- [ ] D3: Публичный GitHub repo содержит проверенный исходный код, двуязычную документацию и мастер. — Pending publication of isolated source tree; no parent repository files will be pushed.
+- [x] D3: Публичный GitHub repo содержит проверенный исходный код, двуязычную документацию и мастер. — Public source tree published and HTTP200/page content verified; only this standalone repository was pushed, not the parent Sentinel repository. Source safety scan passed for all 65 tracked files.
 
 ## Out-of-spec observations (not built)
 External backup, upgrades, migration from existing servers and DNS-provider API automation are intentionally not implemented.
+
+Publication is a PREVIEW and does not close D2. Full implementation acceptance remains FAIL until the disposable-VPS checks are complete.
