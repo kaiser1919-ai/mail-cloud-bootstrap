@@ -4,16 +4,36 @@ permissions:
   contents: read
 jobs:
   offline-contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python: ['3.12', '3.13']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '${{ matrix.python }}'
       - run: python -m pip install 'ansible-core>=2.19,<2.20' jinja2 pyyaml
       - run: python -m unittest discover -s tests -v
       - run: bash -n install.sh && sh -n ansible/files/renew.sh
       - run: ansible-playbook -i localhost, -c local ansible/site.yml --syntax-check
       - run: bash tests/render.sh
       - run: python -m compileall -q installer ansible/files
-  # Not a deployment test. Acceptance requires a disposable Debian 13 VPS + real DNS.
+  ubuntu-native:
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    timeout-minutes: 20
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      MAIL_CLOUD_EPHEMERAL_CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ubuntu-native test dependencies (isolated root container only)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3 python3-yaml python3-jinja2 ca-certificates software-properties-common
+          add-apt-repository --yes --no-update universe
+      - name: Native parsers and local synthetic identity/mail/Redis tests
+        run: python3 tests/ubuntu_native.py
+  # This is NOT a full systemd/VPS/ACME/Office deployment acceptance test.
+  # Debian13 native-server acceptance is explicitly deferred until after Ubuntu.

@@ -124,7 +124,7 @@
       Type=simple
       RuntimeDirectory=mail-cloud-php
       ExecStartPre=/usr/bin/systemd-tmpfiles --create /etc/tmpfiles.d/mail-cloud.conf
-      ExecStart=/usr/sbin/php-fpm8.4 --nodaemonize --fpm-config /srv/mail-cloud/php-fpm.conf
+      ExecStart=/usr/sbin/php-fpm{{ php_version }} --nodaemonize --fpm-config /srv/mail-cloud/php-fpm.conf
       Restart=on-failure
       MemoryHigh=512M
       MemoryMax=768M

@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Drop privilege before running occ. JSON stdin option keeps secrets out of argv."""
 import json
+from mc_runtime import php_binary
 import os
 import pwd
 import subprocess
@@ -18,7 +19,7 @@ def drop():
     os.initgroups(u.pw_name, u.pw_gid)
     os.setgid(u.pw_gid)
     os.setuid(u.pw_uid)
-result = subprocess.run(['/usr/bin/php8.4', '-d', 'apc.enable_cli=1', '-d', 'memory_limit=512M', '-d', 'sys_temp_dir=/srv/mail-cloud/staging/nextcloud', '-r', code],
+result = subprocess.run([php_binary(), '-d', 'apc.enable_cli=1', '-d', 'memory_limit=512M', '-d', 'sys_temp_dir=/srv/mail-cloud/staging/nextcloud', '-r', code],
                         input=json.dumps(args).encode(), preexec_fn=drop if os.geteuid() == 0 else None,
                         cwd='/srv/mail-cloud/nextcloud', env={'PATH': '/usr/bin:/bin', 'HOME': '/nonexistent'})
 sys.exit(result.returncode)

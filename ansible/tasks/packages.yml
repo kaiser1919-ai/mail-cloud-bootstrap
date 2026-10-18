@@ -18,22 +18,22 @@
       - ldap-utils
       - mariadb-server
       - redis-server
-      - php8.4-fpm
-      - php8.4-cli
-      - php8.4-mysql
-      - php8.4-ldap
-      - php8.4-gd
-      - php8.4-curl
-      - php8.4-mbstring
-      - php8.4-intl
-      - php8.4-xml
-      - php8.4-zip
-      - php8.4-bz2
-      - php8.4-apcu
-      - php8.4-redis
-      - php8.4-imagick
-      - php8.4-bcmath
-      - php8.4-gmp
+      - php{{ php_version }}-fpm
+      - php{{ php_version }}-cli
+      - php{{ php_version }}-mysql
+      - php{{ php_version }}-ldap
+      - php{{ php_version }}-gd
+      - php{{ php_version }}-curl
+      - php{{ php_version }}-mbstring
+      - php{{ php_version }}-intl
+      - php{{ php_version }}-xml
+      - php{{ php_version }}-zip
+      - php{{ php_version }}-bz2
+      - php{{ php_version }}-apcu
+      - php{{ php_version }}-redis
+      - php{{ php_version }}-imagick
+      - php{{ php_version }}-bcmath
+      - php{{ php_version }}-gmp
       - postfix
       - postfix-ldap
       - dovecot-core
@@ -54,7 +54,7 @@
     state: stopped
     enabled: false
     masked: true
-  loop: [slapd, redis-server, php8.4-fpm, postfix, postfix@-, dovecot, rspamd]
+  loop: [slapd, redis-server, 'php{{ php_version }}-fpm', postfix, postfix@-, dovecot, rspamd]
 - name: Project directories
   ansible.builtin.file:
     path: '{{ item }}'
@@ -100,3 +100,12 @@
     src: auth.py
     dest: /usr/local/lib/mail-cloud/auth-check
     mode: '0755'
+- name: Selected non-secret runtime profile (shared by every PHP helper)
+  ansible.builtin.copy:
+    dest: /usr/local/lib/mail-cloud/platform.json
+    content: '{{ runtime_profile | to_nice_json }}'
+    mode: '0644'
+- ansible.builtin.copy:
+    src: mc_runtime.py
+    dest: /usr/local/lib/mail-cloud/mc_runtime.py
+    mode: '0644'

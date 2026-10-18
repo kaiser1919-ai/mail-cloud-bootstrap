@@ -74,10 +74,28 @@ def private_load(path):
     return json.loads(path.read_text())
 
 
+def detect_platform(os_release=None):
+    if os_release is None:
+        os_release = dict(line.split('=', 1) for line in Path('/etc/os-release').read_text().splitlines() if '=' in line)
+    key = os_release.get('ID', '').strip('"') + '-' + os_release.get('VERSION_ID', '').strip('"')
+    profiles = json.loads((ROOT / 'platforms.json').read_text())['os_profiles']
+    if key not in profiles:
+        raise ValueError('Only Ubuntu 24.04 LTS and Debian 13 are supported')
+    return {'key': key, **profiles[key]}
+
+
+def validate_resume_platform(values, current):
+    previous = values.get('platform')
+    # Pre-profile releases were Debian13-only: adopt only that exact platform.
+    if previous is None:
+        if current['key'] != 'debian-13':
+            raise ValueError('Legacy Debian state cannot be resumed on another OS')
+    elif previous != current:
+        raise ValueError('OS/runtime profile changed; refusing cross-OS migration')
+
+
 def preflight(c, resume):
-    os_release = dict(line.split('=', 1) for line in Path('/etc/os-release').read_text().splitlines() if '=' in line)
-    if os_release.get('ID', '').strip('"') != 'debian' or os_release.get('VERSION_ID', '').strip('"') != '13':
-        raise ValueError('Only Debian 13 is supported')
+    profile = detect_platform()
     if os.uname().machine != 'x86_64' or not Path('/run/systemd/system').is_dir():
         raise ValueError('Requires amd64 and a running systemd, not a container')
     if not resume:
@@ -117,7 +135,7 @@ def main():
         print(json.dumps(validate(json.loads(args.config.read_text())), indent=2))
         return
     if os.geteuid() != 0:
-        raise ValueError('Run as root on a NEW Debian 13 VPS. Read/review the code first.')
+        raise ValueError('Run as root on a NEW Ubuntu 24.04 or Debian 13 VPS. Read/review the code first.')
     os.umask(0o077)
     if STATE.is_symlink():
         raise ValueError('State directory must not be a symlink')
@@ -142,7 +160,7 @@ def main():
         if args.config:
             c = validate(json.loads(args.config.read_text()))
         else:
-            print('Новый Debian 13 / NEW Debian 13. Domains default to disk.DOMAIN and mail.DOMAIN.')
+            print('NEW Ubuntu 24.04 LTS / Debian 13. Domains default to disk.DOMAIN and mail.DOMAIN.')
             c = validate({'domain': input('Domain: ').strip(), 'ipv4': input('Public IPv4: ').strip(),
                           'acme_email': input('Email for certificate notices: ').strip(),
                           'users': input('Mailbox local names, comma separated (e.g. alice,bob): ').strip().split(',')})
@@ -151,10 +169,23 @@ def main():
         if input('Type INSTALL to proceed: ') != 'INSTALL':
             return
     preflight(c, resume)
+    profile = detect_platform()
+    if resume:
+        validate_resume_platform(values, profile)
+        if 'platform' not in values:
+            values['platform'] = profile
+            atomic_json(stored, values)
     if not resume:
-        values = {'parameters': c, 'secrets': {k: secrets.token_hex(32) for k in ('db', 'ldap_cloud', 'ldap_mail', 'ldap_admin', 'recovery')},
+        values = {'parameters': c, 'platform': profile, 'secrets': {k: secrets.token_hex(32) for k in ('db', 'ldap_cloud', 'ldap_mail', 'ldap_admin', 'recovery')},
                   'passwords': {u: secrets.token_urlsafe(24) for u in c['users']}}
         atomic_json(stored, values)
+    if profile['os_id'] == 'ubuntu' and not (args.check or args.open_portal):
+        # Standard Ubuntu component, never a third-party PPA. Also needed when
+        # ansible already exists but Universe dependencies were disabled.
+        run(['apt-get', 'update'])
+        run(['apt-get', '-y', '--no-install-recommends', 'install', 'software-properties-common'])
+        run(['add-apt-repository', '--yes', '--no-update', 'universe'])
+        run(['apt-get', 'update'])
     if not shutil.which('ansible-playbook'):
         run(['apt-get', 'update'])
         run(['apt-get', '-y', '--no-install-recommends', 'install', 'ansible-core'])

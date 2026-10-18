@@ -118,15 +118,17 @@ class SourceContracts(unittest.TestCase):
         import jinja2
         c = w.validate(json.loads((ROOT/'example.json').read_text()))
         env = jinja2.Environment(undefined=jinja2.StrictUndefined)
-        for p in (ROOT/'ansible/templates').glob('*.j2'):
-            item = 'mail-redis' if p.name == 'redis.service.j2' else None
-            out = env.from_string(p.read_text()).render(c=c, nc='/srv/mail-cloud/nextcloud', suffix='dc=example,dc=org', secrets={'ldap_mail':'fixture'}, item=item)
-            self.assertNotIn('{{',out)
-            self.assertNotIn('{%',out)
-            if p.name == 'virtual-aliases.j2':
-                self.assertIn(r'example\.org',out)
-            if p.name == 'mc_outbound.lua.j2':
-                self.assertIn("['alice@example.org']=true", out)
+        profiles=json.loads((ROOT/'platforms.json').read_text())['os_profiles']
+        for profile in profiles.values():
+            for p in (ROOT/'ansible/templates').glob('*.j2'):
+                with self.subTest(profile=profile['os_id'],template=p.name):
+                    item = 'mail-redis' if p.name == 'redis.service.j2' else None
+                    out = env.from_string(p.read_text()).render(c=c, nc='/srv/mail-cloud/nextcloud', suffix='dc=example,dc=org', secrets={'ldap_mail':'fixture'}, item=item, runtime_profile=profile, php_version=profile['php_version'])
+                    self.assertNotIn('{{',out)
+                    self.assertNotIn('{%',out)
+                    if p.name == 'virtual-aliases.j2': self.assertIn(r'example\.org',out)
+                    if p.name == 'mc_outbound.lua.j2': self.assertIn("['alice@example.org']=true",out)
+                    if p.name == 'main.cf.j2': self.assertIn('compatibility_level = '+profile['postfix_compat'],out)
     def test_no_owner_data_or_fonts(self):
         forbidden = ['/home/', 'GITHUB_TOKEN=', 'BEGIN OPENSSH PRIVATE KEY', '@font-face']
         for folder in ('ansible','installer','docs'):
@@ -192,15 +194,21 @@ class StorageResume(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'Unsafe'): m.ensure_image(image,p/'seal',4096)
 
 class Preflight(unittest.TestCase):
-    def setUp(self): self.c=w.validate(json.loads((ROOT/'example.json').read_text()))
+    def setUp(self):
+        self.c=w.validate(json.loads((ROOT/'example.json').read_text()))
+        self.original_read=Path.read_text
+        self.release='ID=debian\nVERSION_ID="13"\n'
     def host(self, path):
-        return 'ID=debian\nVERSION_ID="13"\n' if str(path)=='/etc/os-release' else 'MemTotal: 2048000 kB\nSwapTotal: 4194304 kB\n'
+        if str(path)=='/etc/os-release': return self.release
+        if str(path)=='/proc/meminfo': return 'MemTotal: 2048000 kB\nSwapTotal: 4194304 kB\n'
+        return self.original_read(path)
     def test_foreign_config_rejected(self):
         with patch.object(Path,'read_text',lambda p: self.host(p)),patch.object(Path,'is_dir',return_value=True),patch.object(Path,'exists',lambda p: str(p)=='/etc/postfix'),patch.object(Path,'is_symlink',return_value=False):
             with self.assertRaisesRegex(ValueError,'Not a clean host'): w.preflight(self.c,False)
     def test_wrong_os_rejected(self):
-        with patch.object(Path,'read_text',return_value='ID=ubuntu\nVERSION_ID=24\n'):
-            with self.assertRaisesRegex(ValueError,'Only Debian'): w.preflight(self.c,False)
+        self.release='ID=ubuntu\nVERSION_ID=22.04\n'
+        with patch.object(Path,'read_text',lambda p: self.host(p)):
+            with self.assertRaisesRegex(ValueError,'Only Ubuntu'): w.preflight(self.c,False)
     def test_occupied_port_rejected(self):
         with patch.object(Path,'read_text',lambda p: self.host(p)),patch.object(Path,'is_dir',return_value=True),patch.object(Path,'exists',return_value=False),patch.object(Path,'is_symlink',return_value=False),patch.object(w.socket,'socket') as sock:
             sock.return_value.__enter__.return_value.bind.side_effect=OSError('busy')

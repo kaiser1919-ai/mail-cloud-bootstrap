@@ -53,13 +53,13 @@ certbot renew --dry-run
 | `/srv/mail-cloud/identity` | LDAP config and MDB database |
 | `/var/lib/mysql` | MariaDB, outside user pool |
 | `/etc/rspamd/dkim` | Private DKIM key |
-| `/srv/mail-cloud/state/packages.tsv` | Actual Debian package version receipt |
+| `/srv/mail-cloud/state/packages.tsv` | Actual OS package version receipt |
 
-Cloud code is outside the user data filesystem. Mail/cloud/Office units depend on mounts and bind to them; loss of a mount stops dependent units. Do not casually unmount a live filesystem for a test; perform mount-loss failure injection only on a disposable test VPS. Do not add `discard` or `fstrim` for image mounts: hole-punching can invalidate physical reservation. The installer deliberately does not put these image mounts in fstab (the stock Debian fstrim timer enumerates fstab first). Audit local fstrim overrides before production.
+Cloud code is outside the user data filesystem. Mail/cloud/Office units depend on mounts and bind to them; loss of a mount stops dependent units. Do not casually unmount a live filesystem for a test; perform mount-loss failure injection only on a disposable test VPS. Do not add `discard` or `fstrim` for image mounts: hole-punching can invalidate physical reservation. The installer deliberately does not put these image mounts in fstab (the stock Ubuntu/Debian fstrim timer enumerates fstab first). Audit local fstrim overrides before production.
 
 ## Обновления / Updates
 
-No unattended Nextcloud/app upgrades are installed. Debian security updates should be maintained by the operator. Record the current receipt, read release notes/advisories and compatibility constraints, take a consistent independent backup, test in staging and use the supported Nextcloud upgrade path. Do not edit only the version string or disable signature verification.
+No unattended Nextcloud/app upgrades are installed. Ubuntu/Debian security updates should be maintained by the operator. Record the current receipt, read release notes/advisories and compatibility constraints, take a consistent independent backup, test in staging and use the supported Nextcloud upgrade path. Do not edit only the version string or disable signature verification.
 
 The core archive SHA256 is pinned in `ansible/site.yml`. App release URLs/versions are pinned there, signed file manifests are checked by `occ integrity:check-app` before enabling. The repository does not currently implement upgrading an existing installation: downloads refuse replacement, and the wizard refuses changed installation parameters. **Do not use a changed version of this installer as an upgrade command.**
 
@@ -81,7 +81,7 @@ Protect the backup passphrase/key separately from the source VPS. Retention requ
 
 These are **pending real-environment tests**, not CI results:
 
-1. Clean Debian13 installation, interrupted DNS/download recovery, rerun without new passwords/formatting, reboot with all dependencies active and both mounts intact.
+1. Clean Ubuntu24.04 installation (Debian13 native acceptance deferred), interrupted DNS/download recovery, rerun without new passwords/formatting, reboot with all dependencies active and both mounts intact.
 2. Real external HTTPS and TLS renewal; TOTP and backup-code login; fresh LDAP cloud/Mail/IMAP/submission logins, wrong and cross-account password rejection.
 3. Two isolated browser users: no access to the other's private files/Maildirs, explicit shares work, revocation blocks later access. Mail can receive and send with an external provider; inspect SPF/DKIM/DMARC authentication results. Never send test email to arbitrary third parties.
 4. SMTP25 never advertises AUTH; no external relay, unknown recipients or foreign authenticated sender; stopped Rspamd/mail Redis/missing DKIM key result in temporary rejection, not unsigned mail. Sliding hourly limit and retry queue-id deduplication survive Redis/service restarts.
@@ -93,3 +93,9 @@ Passing a subset cannot be reported as a full acceptance PASS.
 ## Interrupted bootstrap safety stops
 
 A `.tmp` state file or an image without a UUID seal indicates interruption during a safety-critical write. The master intentionally stops rather than deleting/reformatting it. Inspect it locally as root, verify the corresponding operation completed, and recover state explicitly; never use a blind cleanup command. A normal DNS/download failure does not require resetting state. Rerunning the installation can stop/restart its own services; use it for bootstrap recovery, not as a zero-downtime production update mechanism.
+
+## Ubuntu 24.04 profile
+
+Ubuntu is the first native acceptance target. The master enables the standard Universe component, uses PHP8.3/FPM8.3, Dovecot2.3 with `/etc/dovecot/mail-cloud-ldap.conf`, and a Postfix3.8-compatible configuration. `/usr/local/lib/mail-cloud/platform.json` is root-owned non-secret runtime metadata, shared by every PHP helper. Original secret state records the OS/profile to prevent cross-distribution resume. Legacy state without a profile is accepted only on Debian13, its sole original target.
+
+Native Ubuntu CI installs actual packages and tests parsers, LDAP-bind IMAPS authentication including wrong/cross passwords, LMTP mailbox isolation and Redis rolling limits/dedup/restart. It does not prove systemd dependencies, real mounts/cgroups, reboot, ACME, internet mail or Nextcloud/Office browser behavior. Debian's real-server checks remain explicitly deferred.

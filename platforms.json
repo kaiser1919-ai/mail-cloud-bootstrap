@@ -1,0 +1,20 @@
+{
+  "os_profiles": {
+    "ubuntu-24.04": {
+      "os_id": "ubuntu",
+      "version": "24.04",
+      "distribution": "Ubuntu",
+      "php_version": "8.3",
+      "dovecot_series": "2.3",
+      "postfix_compat": "3.6"
+    },
+    "debian-13": {
+      "os_id": "debian",
+      "version": "13",
+      "distribution": "Debian",
+      "php_version": "8.4",
+      "dovecot_series": "2.4",
+      "postfix_compat": "3.10"
+    }
+  }
+}

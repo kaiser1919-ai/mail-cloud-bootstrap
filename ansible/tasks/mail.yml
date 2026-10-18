@@ -4,12 +4,19 @@
     name: '{{ item }}'
     state: stopped
   loop: [postfix, dovecot, rspamd]
-- name: Native Dovecot 2.4 LDAP/TLS configuration
+- name: Native Dovecot {{ runtime_profile.dovecot_series }} LDAP/TLS configuration
   ansible.builtin.template:
-    src: dovecot.conf.j2
+    src: 'dovecot-{{ runtime_profile.dovecot_series }}.conf.j2'
     dest: /etc/dovecot/dovecot.conf
     mode: '0600'
   no_log: true
+- name: Dovecot 2.3 LDAP database (separate config, not 2.4 syntax)
+  ansible.builtin.template:
+    src: dovecot-ldap-2.3.conf.j2
+    dest: /etc/dovecot/mail-cloud-ldap.conf
+    mode: '0600'
+  no_log: true
+  when: runtime_profile.dovecot_series == '2.3'
 - name: Preserve native Postfix queue layout in shared pool
   ansible.builtin.command:
     argv: [cp, -a, /var/spool/postfix, /srv/mail-cloud/data/postfix]

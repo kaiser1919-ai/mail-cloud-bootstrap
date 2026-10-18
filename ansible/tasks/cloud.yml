@@ -54,7 +54,7 @@
       [Service]
       Type=oneshot
       User=mailcloud-nextcloud
-      ExecStart=/usr/bin/php8.4 -d apc.enable_cli=1 -d memory_limit=256M /srv/mail-cloud/nextcloud/cron.php
+      ExecStart=/usr/bin/php{{ php_version }} -d apc.enable_cli=1 -d memory_limit=256M /srv/mail-cloud/nextcloud/cron.php
       MemoryMax=384M
       TimeoutStartSec=240
       NoNewPrivileges=yes

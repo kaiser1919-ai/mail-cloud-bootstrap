@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 import json
+from mc_runtime import php_binary
 import os
 from pathlib import Path
 import pwd
@@ -20,4 +21,4 @@ foreach($x['users'] as $id){$u=$um->get($id);if(!$u || $u->getBackendClassName()
 u = pwd.getpwnam('mailcloud-nextcloud')
 def drop():
     os.initgroups(u.pw_name, u.pw_gid); os.setgid(u.pw_gid); os.setuid(u.pw_uid)
-subprocess.run(['php8.4', '-d', 'apc.enable_cli=1', '-r', code], input=json.dumps(c).encode(), preexec_fn=drop, check=True, cwd='/srv/mail-cloud/nextcloud')
+subprocess.run([php_binary(), '-d', 'apc.enable_cli=1', '-r', code], input=json.dumps(c).encode(), preexec_fn=drop, check=True, cwd='/srv/mail-cloud/nextcloud')

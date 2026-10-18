@@ -9,10 +9,13 @@
         that:
           - suffix == 'dc=example,dc=org'
           - c.cloud_host == 'disk.example.org'
+          - runtime_profile.php_version == platform.php_version
+          - runtime_profile.dovecot_series == platform.dovecot_series
+          - platform_key == platform.key
     - name: Render actual Ansible templates into disposable project-local output
       ansible.builtin.template:
         src: '{{ item }}'
-        dest: '{{ playbook_dir }}/../.runtime/render/{{ item | basename | regex_replace(".j2$", "") }}'
+        dest: '{{ render_dir }}/{{ item | basename | regex_replace(".j2$", "") }}'
         mode: '0600'
       loop: '{{ lookup("fileglob", playbook_dir + "/../ansible/templates/*.j2", wantlist=True) }}'
       no_log: true

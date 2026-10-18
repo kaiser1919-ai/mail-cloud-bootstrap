@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Bootstrap acceptance: real LDAP cloud password and cross-password rejection."""
 import json
+from mc_runtime import php_binary
 import os
 from pathlib import Path
 import pwd
@@ -20,4 +21,4 @@ if(count($users)>1 && $m->checkPassword($item['email'],$users[($i+1)%count($user
 u = pwd.getpwnam('mailcloud-nextcloud')
 def drop():
     os.initgroups(u.pw_name,u.pw_gid);os.setgid(u.pw_gid);os.setuid(u.pw_uid)
-subprocess.run(['php8.4','-d','apc.enable_cli=1','-r',code], input=json.dumps(users).encode(),preexec_fn=drop,check=True,cwd='/srv/mail-cloud/nextcloud')
+subprocess.run([php_binary(),'-d','apc.enable_cli=1','-r',code], input=json.dumps(users).encode(),preexec_fn=drop,check=True,cwd='/srv/mail-cloud/nextcloud')

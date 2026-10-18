@@ -1,0 +1,12 @@
+# Password authentication via per-user bind; read bind cannot read password hashes.
+uris = ldap://127.0.0.1:1389
+dn = cn=dovecot,ou=services,{{ suffix }}
+dnpass = {{ secrets.ldap_mail }}
+ldap_version = 3
+base = ou=people,{{ suffix }}
+scope = subtree
+auth_bind = yes
+pass_filter = (&(objectClass=inetOrgPerson)(mail=%u)(mail=*@{{ c.domain }}))
+pass_attrs = mail=user
+user_filter = (&(objectClass=inetOrgPerson)(mail=%u)(mail=*@{{ c.domain }}))
+user_attrs = mail=home=/srv/mail-cloud/data/mail/%$

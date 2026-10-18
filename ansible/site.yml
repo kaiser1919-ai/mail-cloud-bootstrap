@@ -1,9 +1,14 @@
 ---
-- name: Native mail/cloud bootstrap (new Debian 13 only)
+- name: Native mail/cloud bootstrap (Ubuntu 24.04 first; Debian 13 retained)
   hosts: all
   become: false
   gather_facts: true
+  vars_files:
+    - ../platforms.json
   vars:
+    platform_key: "{{ ansible_distribution | lower }}-{{ ansible_distribution_version if ansible_distribution == 'Ubuntu' else ansible_distribution_major_version }}"
+    runtime_profile: "{{ os_profiles.get(platform_key, {}) }}"
+    php_version: "{{ runtime_profile.php_version }}"
     ansible_remote_tmp: /etc/mail-cloud-installer/ansible-remote
     base: /srv/mail-cloud
     nc: /srv/mail-cloud/nextcloud
@@ -21,8 +26,11 @@
     - name: Enforce supported OS and privilege
       ansible.builtin.assert:
         that:
-          - ansible_distribution == 'Debian'
-          - ansible_distribution_major_version == '13'
+          - platform_key in os_profiles
+          - platform is defined
+          - platform.key == platform_key
+          - platform.php_version == runtime_profile.php_version
+          - platform.dovecot_series == runtime_profile.dovecot_series
           - ansible_architecture == 'x86_64'
           - ansible_user_uid == 0
           - bootstrap_action in ['install', 'check', 'open']

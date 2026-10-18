@@ -4,7 +4,7 @@
 
 | Проблема / Failure | Решение / Resolution |
 |---|---|
-| Dovecot 2.3 examples fail on 2.4 | Use 2.4 configuration/storage versions, native `passdb ldap`, `fields`, `%{user}` syntax and validate with `doveconf` before start. |
+| Dovecot 2.3 examples fail on 2.4 | Select native 2.3 on Ubuntu (`passdb { driver=ldap }`, separate LDAP file, `%u`, ssl_cert/ssl_key) versus 2.4 on Debian (versioned config, `passdb ldap`, `fields`, `%{user}`). Validate both separately; removing only an OS guard is unsafe. |
 | One browser portal was confused with merely matching emails | Shared local LDAP identities, native Nextcloud Mail provisioning and credential middleware. Separate recovery admin; no invented OIDC service or cross-domain SSO claim. |
 | Base64-shaped LDAP passwords were accidentally treated as encoded content | Generate hex service passwords, hash the actual literal string with salted SSHA, and use explicit LDIF base64 encoding for attributes. |
 | Public cloud exposure before recovery MFA | Default localhost-only HTTPS; owner enrols TOTP and backup codes; opening parses only **enabled** providers, not the disabled-provider list. |
@@ -34,3 +34,11 @@ Consulted 2026-10-18; the `latest` manuals may describe newer versions than this
 - [Collabora built-in CODE upstream](https://github.com/CollaboraOnline/richdocumentscode): AppImage extraction fallback, fontconfig and resource requirements; not proof of the service unit on a new host.
 
 The installer is a new portability implementation of the original native architecture, not a byte-for-byte copy of a person's production machine. Independent clean-host acceptance remains open.
+
+## Ubuntu adaptation sources (2026-10-18)
+
+- [Ubuntu PHP](https://packages.ubuntu.com/noble/php-fpm), [Dovecot](https://packages.ubuntu.com/noble/dovecot-core), [Postfix](https://packages.ubuntu.com/noble/postfix), [Rspamd](https://packages.ubuntu.com/rspamd): native Noble package branches, not guesses based on apt similarity.
+- [Pinned Nextcloud PHP requirements](https://raw.githubusercontent.com/nextcloud/server/v34.0.4/composer.json), [version gate](https://raw.githubusercontent.com/nextcloud/server/v34.0.4/lib/versioncheck.php): PHP8.3 falls within this pinned source's declared range; no third-party PHP PPA needed.
+- [Dovecot2.3 LDAP](https://doc.dovecot.org/2.3/configuration_manual/authentication/ldap/): distinct bind/database syntax.
+
+The earlier Debian-only profile is retained; actual Debian acceptance follows Ubuntu, not vice versa. Ubuntu-native CI is partial integration evidence, never a replacement for a full target VPS run.

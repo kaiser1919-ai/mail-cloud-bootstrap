@@ -2,28 +2,37 @@
 
 [Русский](README.ru.md) · [Operations](docs/OPERATIONS.md) · [Deployment lessons](docs/LESSONS.md)
 
-> **Preview — NOT production-ready.** Local contract/template/syntax checks are available; a complete clean Debian 13 deployment, rerun, reboot and browser acceptance have **not yet been verified**. Never run this on an existing production machine. [Exact review status](reports/spec-review.md).
+> **Preview — NOT production-ready.** Local contract/template/syntax checks are available; a complete clean Ubuntu 24.04 deployment, rerun, reboot and browser acceptance have **not yet been verified**. Never run this on an existing production machine. [Exact review status](reports/spec-review.md).
 
-One terminal wizard asks for a domain, public IPv4, ACME contact email and mailbox names. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from Debian.
+One terminal wizard asks for a domain, public IPv4, ACME contact email and mailbox names. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from the native OS repository.
 
 ## Stack
 
 - Nextcloud **34.0.4**, Mail **5.12.4**, Calendar **6.6.2**; one browser portal.
 - Nextcloud Office **richdocuments 11.1.2** and built-in Collabora CODE **26.4.402**, supervised separately by systemd.
 - Private OpenLDAP: shared cloud/mail identities and passwords. Mail captures the current user's credential through its native login middleware; no shared master password. This is not cross-domain OIDC/SSO.
-- Postfix, Dovecot **2.4**, Rspamd, mandatory DKIM/milter and **50 outgoing attempts/hour/account**.
-- PHP **8.4** FPM, MariaDB, APCu, separate cloud/mail Redis instances, Nginx and Certbot.
+- Postfix, Dovecot **2.3 on Ubuntu / 2.4 on Debian**, Rspamd, mandatory DKIM/milter and **50 outgoing attempts/hour/account**.
+- PHP **8.3 on Ubuntu / 8.4 on Debian** FPM, MariaDB, APCu, separate cloud/mail Redis instances, Nginx and Certbot.
 - A physically reserved shared ext4 image for files/mail/queue/mail-Redis, separate 2 GiB disk staging, a read-only real-capacity indicator.
 
-No Docker, AIO or Mailcow. The separate local `recovery_admin` is not a mailbox. Application versions intentionally reproduce the original setup, **not a claim that these are the latest or indefinitely supported**. Review upstream security advisories/support and test upgrades before production. OS packages come from signed Debian repositories including security updates; actual versions are recorded in `/srv/mail-cloud/state/packages.tsv`.
+No Docker, AIO or Mailcow. The separate local `recovery_admin` is not a mailbox. Application versions intentionally reproduce the original setup, **not a claim that these are the latest or indefinitely supported**. Review upstream security advisories/support and test upgrades before production. OS packages come from signed native Ubuntu/Debian repositories including security updates; actual versions are recorded in `/srv/mail-cloud/state/packages.tsv`.
 
 ## Requirements
 
-A **NEW, clean Debian 13 amd64 VPS**, systemd and root; at least approximately 2 GiB RAM plus **4 GiB swap**, with 4+ GiB RAM preferable for Office. Real load acceptance is required. Free space on `/srv`: **pool size +25 GiB**, default 105 GiB for the 80 GiB image. Filesystem overhead means usable capacity is slightly smaller; the indicator reports actual capacity.
+A **NEW, clean Ubuntu 24.04 LTS amd64 VPS**, systemd and root (primary target; Debian 13 profile retained, native-server acceptance deferred); at least approximately 2 GiB RAM plus **4 GiB swap**, with 4+ GiB RAM preferable for Office. Real load acceptance is required. Free space on `/srv`: **pool size +25 GiB**, default 105 GiB for the 80 GiB image. Filesystem overhead means usable capacity is slightly smaller; the indicator reports actual capacity.
 
-You need a domain, DNS and provider PTR control, a static public IPv4, inbound TCP **80/443/25/587/993**, outbound TCP25 and HTTPS access to Debian/GitHub/Nextcloud/ACME. Provider security groups/firewalls must allow those ports. The installer neither disables your firewall nor changes SSH. It cannot guarantee mail reputation, connectivity from every country or recipient acceptance.
+You need a domain, DNS and provider PTR control, a static public IPv4, inbound TCP **80/443/25/587/993**, outbound TCP25 and HTTPS access to OS repositories/GitHub/Nextcloud/ACME. Provider security groups/firewalls must allow those ports. The installer neither disables your firewall nor changes SSH. It cannot guarantee mail reputation, connectivity from every country or recipient acceptance.
 
 Existing Nginx/DB/Postfix/Dovecot/LDAP, occupied ports or an existing `/srv/mail-cloud` cause a refusal; there is no automatic adoption, destructive cleanup or migration. Configure swap yourself beforehand if necessary.
+
+## Automatic OS profiles
+
+| OS | PHP/FPM | Dovecot | Acceptance order |
+|---|---|---|---|
+| **Ubuntu 24.04 LTS** | **8.3** | **2.3**, native separate LDAP/TLS config | **First** |
+| Debian 13 | 8.4 | 2.4, separate new-syntax template | After Ubuntu |
+
+No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
 
 ## Start
 
@@ -85,4 +94,4 @@ python3 -m venv .venv
 .venv/bin/ansible-playbook -i localhost, -c local ansible/site.yml --syntax-check
 ```
 
-CI runs offline contracts, template checks and Ansible syntax validation, **not a live mail deployment**. Source license: AGPL-3.0-only. Upstream apps/packages retain their respective licenses; proprietary fonts and private deployment artifacts are excluded.
+CI covers both profile/template branches and Python 3.12/3.13; an isolated Ubuntu24.04 container installs native packages and exercises parsers and synthetic loopback LDAP/IMAPS/LMTP/Redis checks. This is **not a complete VPS/systemd/reboot/public SMTP/Office acceptance test**. Docker is only a CI isolation tool, not the installation architecture. Source license: AGPL-3.0-only. Upstream apps/packages retain their respective licenses; proprietary fonts and private deployment artifacts are excluded.
