@@ -1,0 +1,74 @@
+---
+- name: Reserve shared filesystem safely (never format existing image)
+  ansible.builtin.script:
+    cmd: '{{ playbook_dir }}/files/storage.py data {{ c.pool_gib }}'
+  register: storage
+  changed_when: "'CREATED' in storage.stdout"
+- name: Permanent shared mount unit
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/srv-mail\x2dcloud-data.mount'
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Bounded shared files/mail filesystem
+      Before=local-fs.target
+      [Mount]
+      What=/srv/mail-cloud/images/data.ext4
+      Where=/srv/mail-cloud/data
+      Type=ext4
+      Options=loop,nodev,nosuid,noexec,noatime,nodiscard
+      TimeoutSec=60
+      [Install]
+      WantedBy=local-fs.target
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: 'srv-mail\x2dcloud-data.mount'
+    enabled: true
+    state: started
+- name: Reserve bounded staging on disk, not memory-backed /tmp
+  ansible.builtin.script:
+    cmd: '{{ playbook_dir }}/files/storage.py staging 2'
+  register: staging_storage
+  changed_when: "'CREATED' in staging_storage.stdout"
+- name: Bounded temporary filesystem
+  ansible.builtin.copy:
+    dest: '/etc/systemd/system/srv-mail\x2dcloud-staging.mount'
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Bounded cloud/Office temporary space
+      Before=local-fs.target
+      [Mount]
+      What=/srv/mail-cloud/images/staging.ext4
+      Where=/srv/mail-cloud/staging
+      Type=ext4
+      Options=loop,nodev,nosuid,noatime,nodiscard
+      [Install]
+      WantedBy=local-fs.target
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: 'srv-mail\x2dcloud-staging.mount'
+    enabled: true
+    state: started
+- name: Cloud and mail persistent data
+  ansible.builtin.file:
+    path: '{{ base }}/data/{{ item.name }}'
+    state: directory
+    owner: '{{ item.owner }}'
+    group: '{{ item.owner }}'
+    mode: '0700'
+  loop:
+    - {name: nextcloud, owner: mailcloud-nextcloud}
+    - {name: mail, owner: mailcloud-vmail}
+    - {name: rspamd, owner: _rspamd}
+    - {name: mail-redis, owner: redis}
+- name: Recreate staging directories on reboot
+  ansible.builtin.copy:
+    dest: /etc/tmpfiles.d/mail-cloud.conf
+    mode: '0644'
+    content: |
+      d /srv/mail-cloud/staging/nginx 0700 www-data www-data -
+      d /srv/mail-cloud/staging/nextcloud 0700 mailcloud-nextcloud mailcloud-nextcloud -
+      d /srv/mail-cloud/staging/office 0700 mailcloud-nextcloud mailcloud-nextcloud -
+- ansible.builtin.command: systemd-tmpfiles --create /etc/tmpfiles.d/mail-cloud.conf
+  changed_when: false

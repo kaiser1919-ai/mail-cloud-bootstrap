@@ -1,0 +1,86 @@
+# Self-hosted cloud, mail, calendar and Office
+
+[Русский](README.ru.md) · [Operations](docs/OPERATIONS.md) · [Deployment lessons](docs/LESSONS.md)
+
+> **Preview — NOT production-ready.** Local contract/template/syntax checks are available; a complete clean Debian 13 deployment, rerun, reboot and browser acceptance have **not yet been verified**. Never run this on an existing production machine. [Exact review status](reports/spec-review.md).
+
+One terminal wizard asks for a domain, public IPv4, ACME contact email and mailbox names. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from Debian.
+
+## Stack
+
+- Nextcloud **34.0.4**, Mail **5.12.4**, Calendar **6.6.2**; one browser portal.
+- Nextcloud Office **richdocuments 11.1.2** and built-in Collabora CODE **26.4.402**, supervised separately by systemd.
+- Private OpenLDAP: shared cloud/mail identities and passwords. Mail captures the current user's credential through its native login middleware; no shared master password. This is not cross-domain OIDC/SSO.
+- Postfix, Dovecot **2.4**, Rspamd, mandatory DKIM/milter and **50 outgoing attempts/hour/account**.
+- PHP **8.4** FPM, MariaDB, APCu, separate cloud/mail Redis instances, Nginx and Certbot.
+- A physically reserved shared ext4 image for files/mail/queue/mail-Redis, separate 2 GiB disk staging, a read-only real-capacity indicator.
+
+No Docker, AIO or Mailcow. The separate local `recovery_admin` is not a mailbox. Application versions intentionally reproduce the original setup, **not a claim that these are the latest or indefinitely supported**. Review upstream security advisories/support and test upgrades before production. OS packages come from signed Debian repositories including security updates; actual versions are recorded in `/srv/mail-cloud/state/packages.tsv`.
+
+## Requirements
+
+A **NEW, clean Debian 13 amd64 VPS**, systemd and root; at least approximately 2 GiB RAM plus **4 GiB swap**, with 4+ GiB RAM preferable for Office. Real load acceptance is required. Free space on `/srv`: **pool size +25 GiB**, default 105 GiB for the 80 GiB image. Filesystem overhead means usable capacity is slightly smaller; the indicator reports actual capacity.
+
+You need a domain, DNS and provider PTR control, a static public IPv4, inbound TCP **80/443/25/587/993**, outbound TCP25 and HTTPS access to Debian/GitHub/Nextcloud/ACME. Provider security groups/firewalls must allow those ports. The installer neither disables your firewall nor changes SSH. It cannot guarantee mail reputation, connectivity from every country or recipient acceptance.
+
+Existing Nginx/DB/Postfix/Dovecot/LDAP, occupied ports or an existing `/srv/mail-cloud` cause a refusal; there is no automatic adoption, destructive cleanup or migration. Configure swap yourself beforehand if necessary.
+
+## Start
+
+On the new VPS, install Git/Python, clone this repository into a project directory, inspect the source, then run from a root shell in its root:
+
+```bash
+bash install.sh
+```
+
+The wizard asks four questions and a single `INSTALL` confirmation. For `example.org`, defaults are `disk.example.org` and `mail.example.org`. Enter local mailbox names such as `alice,bob`; login names become full email addresses. Credentials are generated once and kept in `/etc/mail-cloud-installer/config.json` (root-only directory 0700/file 0600). **Never commit, send or publish this file.**
+
+Advanced public parameters:
+
+```bash
+cp example.json my-parameters.json
+# Replace domain, IPv4, ACME email and mailbox names.
+# Optional overrides: cloud_host, mail_host, pool_gib.
+bash install.sh --plan --config my-parameters.json
+bash install.sh --config my-parameters.json
+```
+
+`--plan` validates input without root/network/writes; it does not inspect target readiness. The JSON file is never shell-sourced and accepts only documented public fields. Rerun the same command to resume; changed parameters are refused, existing passwords and filesystems are not reset.
+
+## DNS and certificates
+
+The installer prints exact A/MX/SPF/DKIM/DMARC/PTR requirements. It generates a new DKIM key and shows the actual public TXT record for `mc._domainkey`. Default SPF authorizes only the supplied IPv4; do not apply it blindly to a domain with other senders. This installer is not a migration tool for existing complex mail infrastructure.
+
+Set A records for both hosts, MX to `mail.DOMAIN`, SPF, DKIM, DMARC `p=none`, and ask the VPS provider to set PTR to `mail.DOMAIN`. Do not use a web CDN proxy for mail. Remove AAAA records: public mail is configured for IPv4 here.
+
+Without registrar/provider API credentials, DNS/PTR changes cannot be automated. The script stops on mismatches, preserving state; fix DNS, wait for propagation, then rerun. Mail services remain masked until configuration and full DNS acceptance, including across reboot. Passing DNS does **not** prove external TCP25 or delivery.
+
+Let's Encrypt HTTP-01 issuance is automated through port80, with real hostname validation and a renewal deploy hook. There is no silent self-signed fallback.
+
+## First login
+
+The portal remains localhost-only. Establish an SSH tunnel, configure **recovery_admin TOTP and backup codes**, then run:
+
+```bash
+bash install.sh --open-portal
+bash install.sh --check
+```
+
+Opening verifies enabled MFA providers before removing the localhost gate. Enrolling a person's authenticator requires that person's interaction and is intentionally not faked by the script. See [Operations](docs/OPERATIONS.md) for the hostname-preserving tunnel and manual acceptance checklist.
+
+## Scope and limitations
+
+No personal files/messages/keys, website, VPN, bots, paid service, external backup, unattended Nextcloud/app upgrades, DNS API integration or deliverability guarantee. Local state and configurations are **not backups**. Back up consistent DB/LDAP/files/mail/config/keys/secrets to an independent encrypted destination and test restoration separately.
+
+Before production: clean install → rerun → reboot; two real isolated browser users, external bidirectional email, file/mail privacy and negative relay/sender/auth probes, Office create/edit/save/reopen/export, mount-loss refusal and restore onto another machine. Unit tests are not substitutes.
+
+## Development
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install 'ansible-core>=2.19,<2.20' jinja2 pyyaml
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/ansible-playbook -i localhost, -c local ansible/site.yml --syntax-check
+```
+
+CI runs offline contracts, template checks and Ansible syntax validation, **not a live mail deployment**. Source license: AGPL-3.0-only. Upstream apps/packages retain their respective licenses; proprietary fonts and private deployment artifacts are excluded.

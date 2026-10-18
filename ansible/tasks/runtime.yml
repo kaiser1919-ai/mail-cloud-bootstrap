@@ -1,0 +1,142 @@
+---
+- name: MariaDB private listener and bounded memory
+  ansible.builtin.copy:
+    dest: /etc/mysql/mariadb.conf.d/70-mail-cloud.cnf
+    mode: '0644'
+    content: |
+      [mysqld]
+      skip-networking
+      innodb_buffer_pool_size=128M
+      max_connections=20
+      character-set-server=utf8mb4
+      collation-server=utf8mb4_general_ci
+      transaction-isolation=READ-COMMITTED
+      binlog_format=ROW
+- ansible.builtin.file:
+    path: /etc/systemd/system/mariadb.service.d
+    state: directory
+    mode: '0755'
+- ansible.builtin.copy:
+    dest: /etc/systemd/system/mariadb.service.d/mail-cloud.conf
+    mode: '0644'
+    content: |
+      [Service]
+      MemoryHigh=256M
+      MemoryMax=384M
+      TasksMax=64
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: mariadb
+    enabled: true
+    state: restarted
+- name: Create database and role (generated alphanumeric password)
+  ansible.builtin.command: mariadb --protocol=socket
+  args:
+    stdin: |
+      CREATE DATABASE IF NOT EXISTS nextcloud CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+      CREATE USER IF NOT EXISTS 'nextcloud'@'localhost' IDENTIFIED BY '{{ secrets.db }}';
+      GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'localhost';
+  no_log: true
+  changed_when: false
+- name: Cloud Redis config
+  ansible.builtin.copy:
+    dest: /etc/redis/mail-cloud.conf
+    owner: redis
+    group: redis
+    mode: '0600'
+    content: |
+      bind 127.0.0.1
+      port 6379
+      protected-mode yes
+      daemonize no
+      save ""
+      appendonly no
+      maxmemory 64mb
+      maxmemory-policy noeviction
+      dir /var/lib/redis
+- name: Mail Redis config (separate persistent state)
+  ansible.builtin.copy:
+    dest: /etc/redis/mail-cloud-mail.conf
+    owner: redis
+    group: redis
+    mode: '0600'
+    content: |
+      bind 127.0.0.1
+      port 6380
+      protected-mode yes
+      daemonize no
+      appendonly yes
+      appendfsync everysec
+      save ""
+      maxmemory 64mb
+      maxmemory-policy noeviction
+      dir /srv/mail-cloud/data/mail-redis
+- name: Redis units
+  ansible.builtin.template:
+    src: redis.service.j2
+    dest: '/etc/systemd/system/mail-cloud-{{ item }}.service'
+    mode: '0644'
+  loop: [redis, mail-redis]
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: 'mail-cloud-{{ item }}'
+    enabled: true
+    state: restarted
+  loop: [redis, mail-redis]
+- name: Core archive (immutable checked upstream version)
+  ansible.builtin.command:
+    argv:
+      - /usr/local/lib/mail-cloud/fetch
+      - 'https://download.nextcloud.com/server/releases/nextcloud-{{ nc_version }}.tar.bz2'
+      - nextcloud
+      - '{{ nc_sha256 }}'
+      - '{{ nc }}'
+    creates: '{{ nc }}/version.php'
+- ansible.builtin.file:
+    path: '{{ nc }}/{{ item }}'
+    state: directory
+    owner: mailcloud-nextcloud
+    group: mailcloud-nextcloud
+    mode: '0750'
+  loop: [config, custom_apps]
+- name: Permit nginx traversal of app assets only
+  ansible.builtin.user:
+    name: www-data
+    groups: mailcloud-nextcloud
+    append: true
+- name: Configure isolated PHP-FPM
+  ansible.builtin.template:
+    src: php-fpm.conf.j2
+    dest: '{{ base }}/php-fpm.conf'
+    mode: '0644'
+- name: Isolated PHP-FPM service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mail-cloud-php.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Isolated cloud PHP-FPM
+      After=mariadb.service mail-cloud-redis.service mail-cloud-ldap.service
+      Requires=mariadb.service mail-cloud-redis.service mail-cloud-ldap.service
+      RequiresMountsFor=/srv/mail-cloud/data /srv/mail-cloud/staging
+      BindsTo=srv-mail\x2dcloud-data.mount srv-mail\x2dcloud-staging.mount
+      [Service]
+      Type=simple
+      RuntimeDirectory=mail-cloud-php
+      ExecStartPre=/usr/bin/systemd-tmpfiles --create /etc/tmpfiles.d/mail-cloud.conf
+      ExecStart=/usr/sbin/php-fpm8.4 --nodaemonize --fpm-config /srv/mail-cloud/php-fpm.conf
+      Restart=on-failure
+      MemoryHigh=512M
+      MemoryMax=768M
+      TasksMax=48
+      ProtectSystem=strict
+      ProtectHome=yes
+      PrivateTmp=yes
+      ReadWritePaths=/srv/mail-cloud/nextcloud/config /srv/mail-cloud/nextcloud/custom_apps /srv/mail-cloud/data/nextcloud /srv/mail-cloud/staging /run/mail-cloud-php
+      [Install]
+      WantedBy=multi-user.target
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: mail-cloud-php
+    enabled: true
+    state: restarted

@@ -1,0 +1,70 @@
+log_format mail_cloud '$remote_addr $request_method $uri $status';
+map $http_upgrade $mail_cloud_connection { default upgrade; '' close; }
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name {{ c.cloud_host }};
+    ssl_certificate /etc/letsencrypt/live/{{ c.cloud_host }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ c.cloud_host }}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    root {{ nc }};
+    index index.php index.html /index.php$request_uri;
+    include /etc/nginx/mail-cloud-access.conf;
+    access_log /var/log/nginx/mail-cloud-access.log mail_cloud;
+    client_max_body_size 512M;
+    client_body_timeout 300s;
+    fastcgi_buffers 64 4K;
+    # /tmp on small VPS can be tiny; bodies use dedicated bounded staging.
+    client_body_temp_path /srv/mail-cloud/staging/nginx;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    location = /robots.txt { allow all; log_not_found off; access_log off; }
+    location = /.well-known/carddav { return 301 /remote.php/dav/; }
+    location = /.well-known/caldav { return 301 /remote.php/dav/; }
+    location ^~ /.well-known { return 301 /index.php$request_uri; }
+    location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:$|/) { deny all; }
+    location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console) { deny all; }
+    # Exact built-in CODE gateway, NOT arbitrary PHP in custom_apps.
+    location = /custom_apps/richdocumentscode/proxy.php {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root/custom_apps/richdocumentscode/proxy.php;
+        fastcgi_param HTTPS on;
+        fastcgi_pass unix:/run/mail-cloud-php/php.sock;
+        fastcgi_read_timeout 3600s;
+        fastcgi_request_buffering off;
+    }
+    # Office assets and websocket endpoints stay behind the same access gate.
+    location ~ ^/(?:browser|cool|hosting|lool)/ {
+        proxy_pass http://127.0.0.1:9983;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $mail_cloud_connection;
+        proxy_read_timeout 3600s;
+    }
+    location ~ \.php(?:$|/) {
+        rewrite ^/(?!index|remote|public|cron|core/ajax/update|status|ocs/v[12]|updater/.+|ocs-provider/.+) /index.php$request_uri;
+        fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+        set $path_info $fastcgi_path_info;
+        try_files $fastcgi_script_name =404;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $path_info;
+        fastcgi_param HTTPS on;
+        fastcgi_param modHeadersAvailable true;
+        fastcgi_param front_controller_active true;
+        fastcgi_pass unix:/run/mail-cloud-php/php.sock;
+        fastcgi_read_timeout 3600s;
+        fastcgi_request_buffering off;
+    }
+    location ~ \.(?:css|js|mjs|svg|gif|ico|jpg|jpeg|png|webp|wasm|tflite|map|ogg|flac|woff2?)$ {
+        try_files $uri /index.php$request_uri;
+        add_header Cache-Control "public, max-age=15778463";
+        access_log off;
+    }
+    location /remote { return 301 /remote.php$request_uri; }
+    location / { try_files $uri $uri/ /index.php$request_uri; }
+}

@@ -1,0 +1,48 @@
+---
+- name: Private LDAP filesystem
+  ansible.builtin.file:
+    path: '{{ base }}/identity/{{ item }}'
+    state: directory
+    owner: openldap
+    group: openldap
+    mode: '0700'
+  loop: [data, config]
+- name: Generate LDAP configuration and hashed identities
+  ansible.builtin.script: "{{ playbook_dir }}/files/identity.py configure"
+  no_log: true
+- name: Private LDAP service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mail-cloud-ldap.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Private shared LDAP identity
+      After=network.target
+      [Service]
+      Type=simple
+      User=openldap
+      Group=openldap
+      RuntimeDirectory=mail-cloud-ldap
+      ExecStart=/usr/sbin/slapd -f /srv/mail-cloud/identity/config/slapd.conf -h ldap://127.0.0.1:1389/ -d 0
+      Restart=on-failure
+      MemoryMax=128M
+      TasksMax=32
+      NoNewPrivileges=yes
+      ProtectSystem=strict
+      ProtectHome=yes
+      ReadWritePaths=/srv/mail-cloud/identity/data /run/mail-cloud-ldap
+      [Install]
+      WantedBy=multi-user.target
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: mail-cloud-ldap
+    enabled: true
+    state: started
+- name: Wait for private LDAP
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 1389
+    timeout: 30
+- name: Add only missing LDAP entries (never reset existing passwords)
+  ansible.builtin.script: "{{ playbook_dir }}/files/identity.py populate"
+  no_log: true

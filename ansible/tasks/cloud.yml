@@ -1,0 +1,78 @@
+---
+- name: Application runtime configuration
+  ansible.builtin.template:
+    src: cloud.config.php.j2
+    dest: '{{ nc }}/config/bootstrap.config.php'
+    owner: mailcloud-nextcloud
+    group: mailcloud-nextcloud
+    mode: '0640'
+- name: Check whether application installation is complete
+  ansible.builtin.stat:
+    path: '{{ base }}/state/cloud-installed'
+  register: cloud_installed
+- name: Install Nextcloud or validate interrupted installation
+  ansible.builtin.script: "{{ playbook_dir }}/files/cloud.py install"
+  no_log: true
+  when: not cloud_installed.stat.exists
+- name: Enable bundled authentication and MFA apps
+  ansible.builtin.command:
+    argv: [/usr/local/lib/mail-cloud/occ, app:enable, '{{ item }}']
+  loop: [user_ldap, twofactor_totp, twofactor_backupcodes]
+- name: Configure shared LDAP
+  ansible.builtin.script: "{{ playbook_dir }}/files/cloud.py ldap"
+  no_log: true
+- name: Materialize LDAP mappings and verify actual cloud authentication
+  ansible.builtin.command: /usr/local/lib/mail-cloud/auth-check
+  changed_when: false
+  no_log: true
+- name: Fetch official pinned applications
+  ansible.builtin.command:
+    argv: [/usr/local/lib/mail-cloud/fetch, '{{ item.url }}', '{{ item.id }}', signature, '{{ nc }}/custom_apps/{{ item.id }}']
+    creates: '{{ nc }}/custom_apps/{{ item.id }}/appinfo/info.xml'
+  loop: '{{ apps }}'
+- name: Check app signatures before running application code
+  ansible.builtin.command:
+    argv: [/usr/local/lib/mail-cloud/occ, 'integrity:check-app', '{{ item.id }}']
+  loop: '{{ apps }}'
+  changed_when: false
+- name: Enable official applications
+  ansible.builtin.command:
+    argv: [/usr/local/lib/mail-cloud/occ, app:enable, '{{ item.id }}']
+  loop: '{{ apps }}'
+- name: Set background jobs mode
+  ansible.builtin.command: /usr/local/lib/mail-cloud/occ background:cron
+- name: Cloud cron service
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/mail-cloud-cron.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Nextcloud background jobs
+      After=mail-cloud-php.service
+      RequiresMountsFor=/srv/mail-cloud/data /srv/mail-cloud/staging
+      BindsTo=srv-mail\x2dcloud-data.mount srv-mail\x2dcloud-staging.mount
+      [Service]
+      Type=oneshot
+      User=mailcloud-nextcloud
+      ExecStart=/usr/bin/php8.4 -d apc.enable_cli=1 -d memory_limit=256M /srv/mail-cloud/nextcloud/cron.php
+      MemoryMax=384M
+      TimeoutStartSec=240
+      NoNewPrivileges=yes
+      ProtectHome=yes
+- ansible.builtin.copy:
+    dest: /etc/systemd/system/mail-cloud-cron.timer
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Nextcloud cron every five minutes
+      [Timer]
+      OnBootSec=5min
+      OnUnitActiveSec=5min
+      Persistent=true
+      [Install]
+      WantedBy=timers.target
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: mail-cloud-cron.timer
+    enabled: true
+    state: started

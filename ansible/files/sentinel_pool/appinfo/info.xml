@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<info>
+ <id>sentinel_pool</id><name>Общий диск</name><summary>Общий пул файлов и почты</summary>
+ <description>Read-only shared filesystem capacity for authenticated portal users.</description>
+ <version>0.1.0</version><licence>agpl</licence><author>Sentinel</author>
+ <namespace>SentinelPool</namespace><category>files</category>
+ <dependencies><nextcloud min-version="34" max-version="34"/></dependencies>
+</info>

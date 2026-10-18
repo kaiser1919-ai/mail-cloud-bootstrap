@@ -1,0 +1,25 @@
+[Unit]
+Description=Isolated Collabora CODE for Nextcloud Office
+After=network-online.target mail-cloud-php.service nginx.service
+RequiresMountsFor=/srv/mail-cloud/staging /srv/mail-cloud/data
+BindsTo=srv-mail\x2dcloud-staging.mount srv-mail\x2dcloud-data.mount
+[Service]
+Type=simple
+User=mailcloud-nextcloud
+Group=mailcloud-nextcloud
+Environment=TMPDIR=/srv/mail-cloud/staging/office
+ExecStartPre=/usr/bin/test -d /srv/mail-cloud/staging/office
+ExecStart=/srv/mail-cloud/nextcloud/custom_apps/richdocumentscode/collabora/Collabora_Online.AppImage --appimage-extract-and-run --o:net.proto=IPv4 --o:net.listen=loopback --o:ssl.enable=false --o:ssl.termination=true --o:net.lok_allow.host[14]={{ c.cloud_host }} --pidfile=/srv/mail-cloud/staging/office/office-code.pid
+Restart=on-failure
+RestartSec=5
+MemoryHigh=700M
+MemoryMax=896M
+TasksMax=64
+NoNewPrivileges=no
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=no
+PrivateDevices=no
+ReadWritePaths=/srv/mail-cloud/staging/office
+[Install]
+WantedBy=multi-user.target

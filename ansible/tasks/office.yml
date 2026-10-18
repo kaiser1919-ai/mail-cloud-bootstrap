@@ -1,0 +1,27 @@
+---
+- name: Native bounded CODE service (not PHP spawned)
+  ansible.builtin.template:
+    src: office.service.j2
+    dest: /etc/systemd/system/mail-cloud-office-code.service
+    mode: '0644'
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: mail-cloud-office-code
+    enabled: true
+    state: started
+- name: Wait for private CODE
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9983
+    timeout: 180
+- name: Configure internal/public WOPI gateway with certificate verification
+  ansible.builtin.command:
+    argv: [/usr/local/lib/mail-cloud/occ, config:app:set, richdocuments, '{{ item.key }}', '--value={{ item.value }}']
+  loop:
+    - {key: wopi_url, value: 'https://{{ c.cloud_host }}/custom_apps/richdocumentscode/proxy.php?req='}
+    - {key: public_wopi_url, value: 'https://{{ c.cloud_host }}/custom_apps/richdocumentscode/proxy.php?req='}
+    - {key: disable_certificate_verification, value: 'no'}
+- name: Activate Office discovery
+  ansible.builtin.command: /usr/local/lib/mail-cloud/occ richdocuments:activate-config
+- name: Register Office document handlers/templates
+  ansible.builtin.command: /usr/local/lib/mail-cloud/occ maintenance:mimetype:update-js

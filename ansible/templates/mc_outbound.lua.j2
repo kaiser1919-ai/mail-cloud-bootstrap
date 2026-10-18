@@ -1,0 +1,56 @@
+-- Native3.12.1: postfilter after native signing; forced-whitelist regression tested.
+-- Root-owned plugin for authenticated personal outgoing mail only.
+local lua_redis = require 'lua_redis'
+local N = 'mc_outbound'
+local opts = rspamd_config:get_all_opt(N) or {}
+local redis_params = lua_redis.parse_redis_server(N)
+local limit = tonumber(opts.limit) or 50
+local window_ms = tonumber(opts.window_ms) or 3600000
+local keyfile = opts.keyfile or '/etc/rspamd/dkim/mc.key'
+local scriptfile = opts.scriptfile or '/etc/rspamd/outbound-window.lua'
+local f = io.open(scriptfile, 'rb')
+local window_script
+if f then window_script = f:read('*a'); f:close() end
+local users = { {% for user in c.users %}['{{ user }}@{{ c.domain }}']=true,{% endfor %} }
+local function tempfail(task, reason)
+  task:insert_result('MC_OUTBOUND_BLOCKED', 1.0, reason)
+  task:set_pre_result { action='soft reject', message='Outgoing protection unavailable or limit exceeded; retry later', module=N, priority=2000000000 }
+end
+local function guard(task)
+  local user = task:get_user()
+  if not user or user == '' then return end -- inbound/root system mail not signed as domain users
+  user = string.lower(user)
+  if not users[user] then tempfail(task, 'unknown-account'); return end
+  local smtp = task:get_from('smtp') or {}
+  local mime = task:get_from('mime') or {}
+  if #smtp ~= 1 or #mime ~= 1 or string.lower(smtp[1].addr or '') ~= user or string.lower(mime[1].addr or '') ~= user then
+    tempfail(task, 'sender-ownership'); return
+  end
+  local key = io.open(keyfile, 'rb')
+  if not key then tempfail(task, 'key-unreadable'); return end
+  local first = key:read(96) or ''; key:close()
+  if not first:find('-----BEGIN',1,true) then tempfail(task, 'key-invalid'); return end
+  if not task:has_symbol('DKIM_SIGNED') then tempfail(task, 'signature-missing'); return end
+  local pre, action = task:has_pre_result()
+  if pre and (action == 'reject' or action == 'soft reject' or action == 'discard') then return end
+  local queue_id = task:get_queue_id()
+  if not queue_id or queue_id == '' then tempfail(task, 'missing-mta-id'); return end
+  if not redis_params or not window_script then tempfail(task, 'policy-config'); return end
+  local redis_key = 'mc:outgoing:v1:' .. user
+  local ok = lua_redis.redis_make_request(task, redis_params, redis_key, true,
+    function(err, data)
+      if err or type(data) ~= 'table' or tonumber(data[1]) ~= 1 then
+        tempfail(task, err and 'redis-error' or 'rate-limit')
+      else
+        task:insert_result('MC_OUTBOUND_ALLOWED', 1.0)
+      end
+    end, 'EVAL', { window_script, '1', redis_key, tostring(window_ms), tostring(limit), queue_id })
+  if not ok then tempfail(task, 'redis-unavailable') end
+end
+local id = rspamd_config:register_symbol {
+  name = 'MC_OUTBOUND_POLICY', type = 'postfilter', callback = guard,
+  priority = 2000000000, flags = 'ignore_passthrough', score = 0.0,
+}
+rspamd_config:register_symbol { name='MC_OUTBOUND_BLOCKED', type='virtual', parent=id, score=0.0 }
+rspamd_config:register_symbol { name='MC_OUTBOUND_ALLOWED', type='virtual', parent=id, score=0.0 }
+rspamd_config:register_dependency('MC_OUTBOUND_POLICY', 'DKIM_SIGNED')

@@ -1,0 +1,8 @@
+server_host = ldap://127.0.0.1:1389
+version = 3
+search_base = ou=people,{{ suffix }}
+query_filter = (&(objectClass=inetOrgPerson)(mail=%s))
+result_attribute = mail
+bind = yes
+bind_dn = cn=dovecot,ou=services,{{ suffix }}
+bind_pw = {{ secrets.ldap_mail }}

@@ -1,0 +1,10 @@
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ c.cloud_host }} {{ c.mail_host }};
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/mail-cloud-acme;
+        default_type text/plain;
+    }
+    location / { return 301 https://$host$request_uri; }
+}

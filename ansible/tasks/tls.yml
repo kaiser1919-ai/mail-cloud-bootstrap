@@ -1,0 +1,80 @@
+---
+- name: Hostname-preserving local application connections (DNS checks still use dig)
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: '# {mark} MAIL-CLOUD BOOTSTRAP'
+    block: '127.0.0.1 {{ c.cloud_host }} {{ c.mail_host }}'
+- name: ACME webroot
+  ansible.builtin.file:
+    path: /var/www/mail-cloud-acme
+    state: directory
+    mode: '0755'
+- name: HTTP challenge vhost (no application over HTTP)
+  ansible.builtin.template:
+    src: http.conf.j2
+    dest: /etc/nginx/sites-enabled/mail-cloud-http.conf
+    mode: '0644'
+- name: Remove stock nginx welcome site (clean host only)
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+- ansible.builtin.command: nginx -t
+  changed_when: false
+- ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+    enabled: true
+- name: Print DNS actions and block until A records are correct
+  ansible.builtin.script: "{{ playbook_dir }}/files/dns.py initial"
+  changed_when: false
+- name: Obtain real SAN certificate; never fall back to self-signed
+  ansible.builtin.command:
+    argv:
+      - certbot
+      - certonly
+      - --non-interactive
+      - --agree-tos
+      - --email
+      - '{{ c.acme_email }}'
+      - --webroot
+      - -w
+      - /var/www/mail-cloud-acme
+      - --cert-name
+      - '{{ c.cloud_host }}'
+      - -d
+      - '{{ c.cloud_host }}'
+      - -d
+      - '{{ c.mail_host }}'
+      - --keep-until-expiring
+- name: Keep portal localhost-only until explicit MFA opening
+  ansible.builtin.copy:
+    dest: /etc/nginx/mail-cloud-access.conf
+    force: false
+    mode: '0644'
+    content: |
+      allow 127.0.0.1;
+      allow ::1;
+      deny all;
+- name: TLS portal vhost
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-enabled/mail-cloud-https.conf
+    mode: '0644'
+- ansible.builtin.command: nginx -t
+  changed_when: false
+- ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+- ansible.builtin.copy:
+    src: renew.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/mail-cloud
+    mode: '0755'
+- ansible.builtin.systemd:
+    name: certbot.timer
+    enabled: true
+    state: started
+- name: DNS helper
+  ansible.builtin.copy:
+    src: dns.py
+    dest: /usr/local/lib/mail-cloud/dns
+    mode: '0755'

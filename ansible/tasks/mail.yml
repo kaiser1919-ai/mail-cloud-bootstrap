@@ -1,0 +1,130 @@
+---
+- name: Stop mail during configuration; leave stopped on failure
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: stopped
+  loop: [postfix, dovecot, rspamd]
+- name: Native Dovecot 2.4 LDAP/TLS configuration
+  ansible.builtin.template:
+    src: dovecot.conf.j2
+    dest: /etc/dovecot/dovecot.conf
+    mode: '0600'
+  no_log: true
+- name: Preserve native Postfix queue layout in shared pool
+  ansible.builtin.command:
+    argv: [cp, -a, /var/spool/postfix, /srv/mail-cloud/data/postfix]
+    creates: /srv/mail-cloud/data/postfix
+- name: Postfix configuration
+  ansible.builtin.template:
+    src: '{{ item }}.j2'
+    dest: '/etc/postfix/{{ item }}'
+    group: postfix
+    mode: '0640'
+  loop: [main.cf, ldap-mailboxes.cf, virtual-aliases]
+  no_log: true
+- name: Deliver local root notices to the first real mailbox
+  ansible.builtin.lineinfile:
+    path: /etc/aliases
+    regexp: '^root:'
+    line: 'root: {{ c.users[0] }}@{{ c.domain }}'
+- name: Submission and SMTP listeners; retain complete Debian native services including tlsmgr
+  ansible.builtin.shell: |
+    set -eu
+    postconf -M 'submission/inet=submission inet n - n - 4 smtpd'
+    postconf -P 'submission/inet/syslog_name=postfix/submission'
+    postconf -P 'submission/inet/smtpd_tls_security_level=encrypt'
+    postconf -P 'submission/inet/smtpd_sasl_auth_enable=yes'
+    postconf -P 'submission/inet/smtpd_tls_auth_only=yes'
+    postconf -P 'submission/inet/smtpd_sender_restrictions=reject_authenticated_sender_login_mismatch'
+    postconf -P 'submission/inet/smtpd_recipient_restrictions=permit_sasl_authenticated,reject'
+    postconf -P 'submission/inet/smtpd_relay_restrictions=permit_sasl_authenticated,reject'
+    postconf -M 'smtp/inet=smtp inet n - n - 8 smtpd'
+    postconf -M 'tlsmgr/unix=tlsmgr unix - - n 1000? 1 tlsmgr'
+    postalias /etc/aliases
+    postfix check
+  changed_when: false
+- name: Keep native filter state inside the shared pool, preserving initial package state
+  ansible.builtin.script: "{{ playbook_dir }}/files/filter-state.py"
+- name: Generate DKIM once (private key never shown)
+  ansible.builtin.shell: |
+    set -eu
+    install -d -o _rspamd -g _rspamd -m0750 /etc/rspamd/dkim
+    if [ ! -f /etc/rspamd/dkim/mc.key ]; then
+      rspamadm dkim_keygen -b 2048 -s mc -d '{{ c.domain }}' -k /etc/rspamd/dkim/mc.key > /srv/mail-cloud/state/dkim-dns.txt
+      chown _rspamd:_rspamd /etc/rspamd/dkim/mc.key
+      chmod 0600 /etc/rspamd/dkim/mc.key
+    fi
+    openssl pkey -in /etc/rspamd/dkim/mc.key -pubout -outform DER 2>/dev/null | base64 -w0 > /srv/mail-cloud/state/dkim-public.txt
+    printf 'mc._domainkey.{{ c.domain }} TXT v=DKIM1; k=rsa; p=%s\n' "$(cat /srv/mail-cloud/state/dkim-public.txt)" > /srv/mail-cloud/state/dkim-dns.txt
+  no_log: true
+  changed_when: false
+- name: Rspamd native configs
+  ansible.builtin.template:
+    src: 'rspamd-{{ item }}.j2'
+    dest: '/etc/rspamd/local.d/{{ item }}'
+    owner: root
+    group: _rspamd
+    mode: '0640'
+  loop: [worker-proxy.inc, worker-normal.inc, worker-controller.inc, redis.conf, dkim_signing.conf, mc_outbound.conf]
+- name: Outbound guard from original tested implementation
+  ansible.builtin.template:
+    src: mc_outbound.lua.j2
+    dest: /etc/rspamd/mc_outbound.lua
+    owner: root
+    group: _rspamd
+    mode: '0640'
+- ansible.builtin.copy:
+    src: window.lua
+    dest: /etc/rspamd/outbound-window.lua
+    owner: root
+    group: _rspamd
+    mode: '0640'
+- name: Load custom guard and config
+  ansible.builtin.copy:
+    dest: /etc/rspamd/rspamd.conf.local
+    mode: '0644'
+    content: |
+      lua = "/etc/rspamd/mc_outbound.lua";
+      mc_outbound { .include "/etc/rspamd/local.d/mc_outbound.conf" }
+- name: Shared mount hard dependencies and bounded resources
+  ansible.builtin.file:
+    path: '/etc/systemd/system/{{ item }}.service.d'
+    state: directory
+    mode: '0755'
+  loop: [postfix, postfix@-, dovecot, rspamd]
+- ansible.builtin.copy:
+    dest: '/etc/systemd/system/{{ item }}.service.d/mail-cloud.conf'
+    mode: '0644'
+    content: |
+      [Unit]
+      RequiresMountsFor=/srv/mail-cloud/data
+      BindsTo=srv-mail\x2dcloud-data.mount
+      After=mail-cloud-ldap.service mail-cloud-mail-redis.service
+      Requires=mail-cloud-ldap.service mail-cloud-mail-redis.service
+      [Service]
+      MemoryMax=384M
+      TasksMax=64
+  loop: [postfix, postfix@-, dovecot, rspamd]
+- name: Validate native parsers before public listeners start
+  ansible.builtin.command: '{{ item }}'
+  loop: ['doveconf -n', 'rspamadm configtest', 'postfix check']
+  changed_when: false
+  no_log: true
+- name: Require complete DNS before internet mail is activated
+  ansible.builtin.command: /usr/local/lib/mail-cloud/dns full
+  changed_when: false
+- name: Unmask only after validated configuration and DNS
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    masked: false
+  loop: [rspamd, dovecot, postfix, postfix@-]
+- name: Enable filtered mail
+  ansible.builtin.systemd:
+    daemon_reload: true
+    name: '{{ item }}'
+    enabled: true
+    state: started
+  loop: [rspamd, dovecot, postfix]
+- name: Configure Mail provisioner without sharing passwords with another account
+  ansible.builtin.script: "{{ playbook_dir }}/files/provision.py"
+  no_log: true

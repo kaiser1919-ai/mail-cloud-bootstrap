@@ -1,0 +1,7 @@
+{
+  "domain": "example.org",
+  "ipv4": "93.184.216.34",
+  "acme_email": "admin@example.org",
+  "users": ["alice", "bob"],
+  "pool_gib": 80
+}

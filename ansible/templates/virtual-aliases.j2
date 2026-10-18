@@ -1,0 +1,3 @@
+/^postmaster@{{ c.domain | replace('.', '\\.') }}$/ {{ c.users[0] }}@{{ c.domain }}
+/^abuse@{{ c.domain | replace('.', '\\.') }}$/ {{ c.users[0] }}@{{ c.domain }}
+/^dmarc@{{ c.domain | replace('.', '\\.') }}$/ {{ c.users[0] }}@{{ c.domain }}

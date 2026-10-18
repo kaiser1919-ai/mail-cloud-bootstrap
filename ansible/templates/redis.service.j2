@@ -1,0 +1,21 @@
+[Unit]
+Description=Isolated {{ item }}
+After=network.target
+{% if item == 'mail-redis' %}
+RequiresMountsFor=/srv/mail-cloud/data
+BindsTo=srv-mail\x2dcloud-data.mount
+{% endif %}
+[Service]
+Type=simple
+User=redis
+Group=redis
+ExecStart=/usr/bin/redis-server /etc/redis/mail-cloud{{ '-mail' if item == 'mail-redis' else '' }}.conf
+Restart=on-failure
+MemoryMax=128M
+TasksMax=16
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{ '/srv/mail-cloud/data/mail-redis' if item == 'mail-redis' else '/var/lib/redis' }}
+[Install]
+WantedBy=multi-user.target

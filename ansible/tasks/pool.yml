@@ -1,0 +1,52 @@
+---
+- name: Local app shared pool capacity (no proprietary fonts)
+  ansible.builtin.copy:
+    src: sentinel_pool
+    dest: '{{ nc }}/custom_apps/'
+    mode: preserve
+- name: Enable local read-only capacity app
+  ansible.builtin.command: /usr/local/lib/mail-cloud/occ app:enable sentinel_pool
+- ansible.builtin.copy:
+    src: collect-pool-usage.py
+    dest: /usr/local/lib/mail-cloud/collect-pool-usage
+    mode: '0755'
+- ansible.builtin.copy:
+    dest: /etc/systemd/system/mail-cloud-pool-usage.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Read-only shared pool capacity collector
+      RequiresMountsFor=/srv/mail-cloud/data
+      BindsTo=srv-mail\x2dcloud-data.mount
+      [Service]
+      Type=oneshot
+      User=mailcloud-nextcloud
+      Group=mailcloud-nextcloud
+      RuntimeDirectory=mail-cloud-pool-usage
+      RuntimeDirectoryPreserve=yes
+      RuntimeDirectoryMode=0700
+      ExecStart=/usr/local/lib/mail-cloud/collect-pool-usage
+      ProtectSystem=strict
+      ProtectHome=yes
+      NoNewPrivileges=yes
+      ReadWritePaths=/run/mail-cloud-pool-usage
+      MemoryMax=32M
+- ansible.builtin.copy:
+    dest: /etc/systemd/system/mail-cloud-pool-usage.timer
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Refresh shared capacity every 30 seconds
+      [Timer]
+      OnBootSec=10s
+      OnUnitActiveSec=30s
+      [Install]
+      WantedBy=timers.target
+- ansible.builtin.systemd:
+    daemon_reload: true
+    name: mail-cloud-pool-usage.timer
+    enabled: true
+    state: started
+- ansible.builtin.systemd:
+    name: mail-cloud-pool-usage.service
+    state: started

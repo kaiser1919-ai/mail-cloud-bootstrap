@@ -1,0 +1,16 @@
+
+
+/* A real navigation child, never a floating overlay. Leave footer controls in flow. */
+.sentinel-pool-host{min-height:0;overflow-y:auto}
+.sentinel-pool-host>.app-navigation__body,.sentinel-pool-host>.app-navigation__list{min-height:0;flex-shrink:1}
+.sentinel-pool-host>.app-navigation__body--no-list{height:auto;flex:1 1 0}
+.sentinel-pool-slot{display:block;box-sizing:border-box;flex:0 0 auto;min-width:0;width:100%;padding:8px var(--app-navigation-padding,8px);margin:0;list-style:none}
+.sentinel-pool-slot-files{margin-block-start:auto;padding-inline:0}
+.sentinel-pool-after{margin-block-start:0!important}
+#sentinel-shared-pool{position:static;display:grid;box-sizing:border-box;gap:5px;width:100%;min-width:0;margin:0;padding:10px 12px;border:1px solid var(--color-border,#d7dce2);border-radius:var(--border-radius-large,12px);background:var(--color-main-background,#fff);color:var(--color-main-text,#222);font:12px/1.5 system-ui,var(--font-face,system-ui);text-align:left;overflow-wrap:anywhere;white-space:normal;user-select:text}
+#sentinel-shared-pool strong{font-weight:700}#sentinel-shared-pool progress{display:block;width:100%;height:4px;accent-color:var(--color-primary,#0082c9)}#sentinel-shared-pool.sentinel-pool-low{border-color:var(--color-warning,#ab6200)}#sentinel-shared-pool.sentinel-pool-unavailable{border-style:dashed}
+#sentinel-shared-pool[hidden],#sentinel-shared-pool progress[hidden],.app-navigation--closed #sentinel-shared-pool,.app-navigation--close #sentinel-shared-pool,.app-navigation__content[aria-hidden="true"] #sentinel-shared-pool,.app-navigation__content[inert] #sentinel-shared-pool{display:none!important}
+
+/* Calendar has a non-scrolling header plus a separate list. Never shrink its header into the list. */
+.app-calendar .sentinel-pool-host>.app-navigation__body:not(.app-navigation__body--no-list){flex:0 0 auto}
+.app-calendar .sentinel-pool-host>.app-navigation__list{flex:1 1 0;height:auto;min-height:88px}

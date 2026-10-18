@@ -1,0 +1,102 @@
+---
+- name: Install native packages without starting public services
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    policy_rc_d: 101
+    install_recommends: false
+    name:
+      - nginx
+      - certbot
+      - curl
+      - ca-certificates
+      - openssl
+      - dnsutils
+      - e2fsprogs
+      - util-linux
+      - slapd
+      - ldap-utils
+      - mariadb-server
+      - redis-server
+      - php8.4-fpm
+      - php8.4-cli
+      - php8.4-mysql
+      - php8.4-ldap
+      - php8.4-gd
+      - php8.4-curl
+      - php8.4-mbstring
+      - php8.4-intl
+      - php8.4-xml
+      - php8.4-zip
+      - php8.4-bz2
+      - php8.4-apcu
+      - php8.4-redis
+      - php8.4-imagick
+      - php8.4-bcmath
+      - php8.4-gmp
+      - postfix
+      - postfix-ldap
+      - dovecot-core
+      - dovecot-imapd
+      - dovecot-lmtpd
+      - dovecot-ldap
+      - rspamd
+      - libfontconfig1
+      - libxinerama1
+      - libsm6
+      - fonts-dejavu-core
+      - fontconfig
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+- name: Disable unused stock instances
+  ansible.builtin.systemd:
+    name: '{{ item }}'
+    state: stopped
+    enabled: false
+    masked: true
+  loop: [slapd, redis-server, php8.4-fpm, postfix, postfix@-, dovecot, rspamd]
+- name: Project directories
+  ansible.builtin.file:
+    path: '{{ item }}'
+    state: directory
+    mode: '0755'
+  loop:
+    - '{{ base }}'
+    - '{{ base }}/images'
+    - '{{ base }}/data'
+    - '{{ base }}/staging'
+    - '{{ base }}/downloads'
+    - /usr/local/lib/mail-cloud
+- ansible.builtin.file:
+    path: '{{ base }}/state'
+    state: directory
+    mode: '0700'
+- name: Service users
+  ansible.builtin.user:
+    name: '{{ item }}'
+    system: true
+    create_home: false
+    home: /nonexistent
+    shell: /usr/sbin/nologin
+  loop: [mailcloud-nextcloud, mailcloud-vmail]
+- name: Download and extraction helper
+  ansible.builtin.copy:
+    src: fetch.py
+    dest: /usr/local/lib/mail-cloud/fetch
+    mode: '0755'
+- ansible.builtin.copy:
+    src: occ.py
+    dest: /usr/local/lib/mail-cloud/occ
+    mode: '0755'
+- ansible.builtin.copy:
+    src: health.py
+    dest: /usr/local/lib/mail-cloud/health
+    mode: '0755'
+- ansible.builtin.copy:
+    src: mfa.py
+    dest: /usr/local/lib/mail-cloud/mfa-check
+    mode: '0755'
+- ansible.builtin.copy:
+    src: auth.py
+    dest: /usr/local/lib/mail-cloud/auth-check
+    mode: '0755'

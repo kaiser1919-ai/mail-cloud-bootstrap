@@ -1,0 +1,18 @@
+---
+- name: Render-only checks (no services or root changes)
+  hosts: all
+  gather_facts: false
+  vars:
+    ansible_remote_tmp: '{{ playbook_dir }}/../.runtime/remote'
+  tasks:
+    - ansible.builtin.assert:
+        that:
+          - suffix == 'dc=example,dc=org'
+          - c.cloud_host == 'disk.example.org'
+    - name: Render actual Ansible templates into disposable project-local output
+      ansible.builtin.template:
+        src: '{{ item }}'
+        dest: '{{ playbook_dir }}/../.runtime/render/{{ item | basename | regex_replace(".j2$", "") }}'
+        mode: '0600'
+      loop: '{{ lookup("fileglob", playbook_dir + "/../ansible/templates/*.j2", wantlist=True) }}'
+      no_log: true

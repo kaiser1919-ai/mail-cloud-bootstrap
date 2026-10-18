@@ -1,0 +1,63 @@
+---
+- name: Native mail/cloud bootstrap (new Debian 13 only)
+  hosts: all
+  become: false
+  gather_facts: true
+  vars:
+    ansible_remote_tmp: /etc/mail-cloud-installer/ansible-remote
+    base: /srv/mail-cloud
+    nc: /srv/mail-cloud/nextcloud
+    c: '{{ parameters }}'
+    suffix: "{{ parameters.domain.split('.') | map('regex_replace', '^(.*)$', 'dc=\\1') | join(',') }}"
+    nc_version: 34.0.4
+    nc_sha256: 00f226e6364f96e0918ab06157158f66601b8cedc25af777f5ee5a3056f42b83
+    bootstrap_action: install
+    apps:
+      - {id: mail, version: 5.12.4, url: 'https://github.com/nextcloud-releases/mail/releases/download/v5.12.4/mail-v5.12.4.tar.gz'}
+      - {id: calendar, version: 6.6.2, url: 'https://github.com/nextcloud-releases/calendar/releases/download/v6.6.2/calendar-v6.6.2.tar.gz'}
+      - {id: richdocuments, version: 11.1.2, url: 'https://github.com/nextcloud-releases/richdocuments/releases/download/v11.1.2/richdocuments-v11.1.2.tar.gz'}
+      - {id: richdocumentscode, version: 26.4.402, url: 'https://github.com/CollaboraOnline/richdocumentscode/releases/download/26.4.402/richdocumentscode.tar.gz'}
+  pre_tasks:
+    - name: Enforce supported OS and privilege
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'Debian'
+          - ansible_distribution_major_version == '13'
+          - ansible_architecture == 'x86_64'
+          - ansible_user_uid == 0
+          - bootstrap_action in ['install', 'check', 'open']
+  tasks:
+    - name: Install phases
+      when: bootstrap_action == 'install'
+      block:
+        - ansible.builtin.import_tasks: tasks/packages.yml
+        - ansible.builtin.import_tasks: tasks/storage.yml
+        - ansible.builtin.import_tasks: tasks/identity.yml
+        - ansible.builtin.import_tasks: tasks/runtime.yml
+        - ansible.builtin.import_tasks: tasks/tls.yml
+        - ansible.builtin.import_tasks: tasks/cloud.yml
+        - ansible.builtin.import_tasks: tasks/mail.yml
+        - ansible.builtin.import_tasks: tasks/office.yml
+        - ansible.builtin.import_tasks: tasks/pool.yml
+    - name: Verify TOTP before publishing the portal
+      when: bootstrap_action == 'open'
+      block:
+        - name: Check recovery account TOTP and backup codes (enabled, not disabled)
+          ansible.builtin.command: /usr/local/lib/mail-cloud/mfa-check
+          changed_when: false
+        - ansible.builtin.copy:
+            dest: /etc/nginx/mail-cloud-access.conf
+            content: '# Explicitly opened after recovery MFA setup.\n'
+            mode: '0644'
+        - ansible.builtin.command: nginx -t
+          changed_when: false
+        - ansible.builtin.systemd:
+            name: nginx
+            state: reloaded
+    - name: Full local health checks (never sends external email)
+      ansible.builtin.command: /usr/local/lib/mail-cloud/health
+      changed_when: false
+    - name: Record installed Debian package versions
+      ansible.builtin.shell: dpkg-query -W > /srv/mail-cloud/state/packages.tsv
+      changed_when: false
+      when: bootstrap_action == 'install'
