@@ -90,6 +90,10 @@ def main():
     run('postfix','check')
     result=subprocess.run(['postconf','-n'],capture_output=True,text=True,check=True)
     if 'unused parameter' in result.stderr: raise RuntimeError('Postfix unsupported parameter: '+result.stderr)
+    runtime_tasks=yaml.safe_load((ROOT/'ansible/tasks/runtime.yml').read_text())
+    dbconf=next(t['ansible.builtin.copy']['content'] for t in runtime_tasks if t.get('ansible.builtin.copy',{}).get('dest')=='/etc/mysql/mariadb.conf.d/70-mail-cloud.cnf')
+    write('/etc/mysql/mariadb.conf.d/70-mail-cloud.cnf',dbconf,0o644)
+    run('mariadbd','--user=mysql','--verbose','--help',stdout=subprocess.DEVNULL)
     run('php-fpm8.3','--test','--fpm-config','/srv/mail-cloud/php-fpm.conf')
     write('/srv/mail-cloud/nextcloud/config/check.config.php',render('cloud.config.php.j2'))
     for path in list((ROOT/'ansible/files/sentinel_pool').rglob('*.php'))+[Path('/srv/mail-cloud/nextcloud/config/check.config.php')]:
