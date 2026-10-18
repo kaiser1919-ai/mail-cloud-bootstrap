@@ -25,6 +25,8 @@ You need a domain, DNS and provider PTR control, a static public IPv4, inbound T
 
 Existing Nginx/DB/Postfix/Dovecot/LDAP, occupied ports or an existing `/srv/mail-cloud` cause a refusal; there is no automatic adoption, destructive cleanup or migration. Configure swap yourself beforehand if necessary.
 
+Ubuntu adaptation checks passed on native packages: see [verification evidence](reports/ubuntu-adaptation.md). This still does not mean a full VPS installation passed.
+
 ## Automatic OS profiles
 
 | OS | PHP/FPM | Dovecot | Acceptance order |

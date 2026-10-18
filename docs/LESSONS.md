@@ -44,3 +44,5 @@ The installer is a new portability implementation of the original native archite
 The earlier Debian-only profile is retained; actual Debian acceptance follows Ubuntu, not vice versa. Ubuntu-native CI is partial integration evidence, never a replacement for a full target VPS run.
 
 Ubuntu24.04 also restricts unprivileged user namespaces: a targeted AppImage policy and packaged LDAP profile local include are provided; AppArmor is never globally disabled. [Ubuntu24.04 release notes](https://documentation.ubuntu.com/release-notes/24.04/). Policy parsing in CI does not prove kernel enforcement or real Office behavior.
+
+Additional native-CI findings: preserve Postfix queue ownership with `cp -a` (a generic Python copytree fixture changed ownership and correctly failed postsuper); test service-alias regexes with real postmap and both positive/negative domains, not a substring assertion; test the target Ubuntu Ansible2.16 as well as development2.19. Actual Rspamd3.8 task requests also verify guard behavior rather than relying on a parser-only green result.
