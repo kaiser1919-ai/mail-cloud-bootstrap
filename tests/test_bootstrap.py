@@ -126,7 +126,12 @@ class SourceContracts(unittest.TestCase):
                     out = env.from_string(p.read_text()).render(c=c, nc='/srv/mail-cloud/nextcloud', suffix='dc=example,dc=org', secrets={'ldap_mail':'fixture'}, item=item, runtime_profile=profile, php_version=profile['php_version'])
                     self.assertNotIn('{{',out)
                     self.assertNotIn('{%',out)
-                    if p.name == 'virtual-aliases.j2': self.assertIn(r'example\.org',out)
+                    if p.name == 'virtual-aliases.j2':
+                        for line in out.splitlines():
+                            pattern,target=line.split();pattern=pattern[1:-1]
+                            self.assertIsNotNone(re.fullmatch(pattern,'postmaster@example.org' if 'postmaster' in pattern else ('abuse@example.org' if 'abuse' in pattern else 'dmarc@example.org')))
+                            self.assertIsNone(re.fullmatch(pattern,'postmaster@exampleXorg'))
+                            self.assertEqual(target,'alice@example.org')
                     if p.name == 'mc_outbound.lua.j2': self.assertIn("['alice@example.org']=true",out)
                     if p.name == 'main.cf.j2': self.assertIn('compatibility_level = '+profile['postfix_compat'],out)
     def test_no_owner_data_or_fonts(self):

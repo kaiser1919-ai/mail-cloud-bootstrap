@@ -14,6 +14,8 @@ import ssl
 import subprocess
 import sys
 import time
+import urllib.request
+from email.utils import formatdate
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -112,6 +114,9 @@ def main():
     try:
         ldap=subprocess.Popen(['slapd','-f','/srv/mail-cloud/identity/config/slapd.conf','-h','ldap://127.0.0.1:1389/','-d','0','-u','openldap','-g','openldap']);children.append(ldap);wait(1389)
         run('python3',str(ROOT/'ansible/files/identity.py'),'populate')
+        for alias in ('postmaster','abuse','dmarc'):
+            assert capture('postmap','-q',alias+'@example.org','regexp:/etc/postfix/virtual-aliases')=='alice@example.org'
+        assert capture('postmap','-q','alice@example.org','ldap:/etc/postfix/ldap-mailboxes.cf')=='alice@example.org'
         dovecot=subprocess.Popen(['dovecot','-F']);children.append(dovecot);wait(993)
         ctx=ssl.create_default_context(cafile=str(cert/'fullchain.pem'))
         class NamedContext:
@@ -147,6 +152,29 @@ def main():
         redis.terminate();redis.wait(timeout=15)
         redis=subprocess.Popen(['redis-server','/etc/redis/mail-cloud-mail.conf'],stdout=subprocess.DEVNULL);children.append(redis);wait(6380)
         assert admit('after-restart')[0]=='0'
+        # Actual Rspamd3.8 task API and DKIM signing: no remote SMTP delivery.
+        # Only loopback HTTP/Rspamd requests with synthetic message bytes.
+        rspamd=subprocess.Popen(['rspamd','-f','-u','_rspamd','-g','_rspamd'],stdout=subprocess.DEVNULL);children.append(rspamd);wait(11333)
+        def scan(label,user='alice@example.org',mime='alice@example.org'):
+            body=('From: '+mime+'\r\nTo: bob@example.net\r\nDate: '+formatdate(localtime=False)+'\r\nMessage-ID: <'+label+'@example.org>\r\nSubject: Synthetic native CI fixture\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOnly a local synthetic test.\r\n').encode()
+            request=urllib.request.Request('http://127.0.0.1:11333/checkv2',data=body,headers={'User':user,'From':'alice@example.org','Rcpt':'bob@example.net','IP':'127.0.0.1','Queue-Id':label})
+            with urllib.request.urlopen(request,timeout=60) as response:return json.load(response)
+        good=scan('ci-valid-sender')
+        assert 'DKIM_SIGNED' in good['symbols'],good
+        assert 'MC_OUTBOUND_ALLOWED' in good['symbols'],good
+        for label,kwargs in [('ci-foreign-mime',{'mime':'bob@example.org'}),('ci-unknown-user',{'user':'unknown@example.org'})]:
+            result=scan(label,**kwargs)
+            assert result['action']=='soft reject' and 'MC_OUTBOUND_BLOCKED' in result['symbols'],result
+        key=Path('/etc/rspamd/dkim/mc.key'); saved=key.with_suffix('.saved')
+        key.rename(saved)
+        try:
+            result=scan('ci-missing-key')
+            assert result['action']=='soft reject' and 'MC_OUTBOUND_BLOCKED' in result['symbols'],result
+        finally:saved.rename(key)
+        redis.terminate();redis.wait(timeout=15)
+        result=scan('ci-redis-unavailable')
+        assert result['action']=='soft reject' and 'MC_OUTBOUND_BLOCKED' in result['symbols'],result
+        print('PASS native Rspamd3.8 task API/DKIM/guard: allowed, foreign MIME, unknown user, missing key, Redis outage.',flush=True)
         print('PASS Ubuntu24.04 native parsers, installed packages, PHP8.3, Dovecot2.3 LDAP/TLS/negative auth, LMTP mailbox isolation, Redis rolling50/dedup/restart.',flush=True)
     finally:
         for child in reversed(children):
