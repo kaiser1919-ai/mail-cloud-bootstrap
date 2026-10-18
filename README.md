@@ -32,7 +32,7 @@ Existing Nginx/DB/Postfix/Dovecot/LDAP, occupied ports or an existing `/srv/mail
 | **Ubuntu 24.04 LTS** | **8.3** | **2.3**, native separate LDAP/TLS config | **First** |
 | Debian 13 | 8.4 | 2.4, separate new-syntax template | After Ubuntu |
 
-No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
+No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. AppArmor is preserved: local LDAP path rules and a CODE-AppImage-only user namespace allowance, never a global sysctl disable. Real enforcement remains a VPS acceptance check. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
 
 ## Start
 

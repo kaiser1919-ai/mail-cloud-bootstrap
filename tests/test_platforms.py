@@ -67,3 +67,14 @@ class Profiles(unittest.TestCase):
                 info.st_mode=stat.S_IFLNK|0o777
                 with patch.object(Path,'lstat',return_value=info):
                     with self.assertRaises(ValueError): m.php_binary(f)
+
+    def test_apparmor_targeted_not_globally_disabled(self):
+        aa=(ROOT/'ansible/tasks/apparmor.yml').read_text()
+        self.assertIn('/etc/apparmor.d/local/usr.sbin.slapd',aa)
+        self.assertIn('/srv/mail-cloud/identity/data/** rwk',aa)
+        self.assertIn('apparmor_active.stat.exists',aa)
+        profile=(ROOT/'ansible/templates/apparmor-code.j2').read_text()
+        self.assertIn('Collabora_Online.AppImage',profile)
+        self.assertIn('userns,',profile)
+        for path in list((ROOT/'ansible').rglob('*.yml'))+list((ROOT/'installer').glob('*.py')):
+            self.assertNotIn('apparmor_restrict_unprivileged_userns=0',path.read_text())

@@ -1,0 +1,47 @@
+---
+- name: Check packaged LDAP AppArmor profile
+  ansible.builtin.stat:
+    path: /etc/apparmor.d/usr.sbin.slapd
+  register: slapd_apparmor
+- name: Preserve native LDAP confinement while permitting its isolated project paths
+  when: slapd_apparmor.stat.exists
+  block:
+    - ansible.builtin.file:
+        path: /etc/apparmor.d/local
+        state: directory
+        mode: '0755'
+    - ansible.builtin.blockinfile:
+        path: /etc/apparmor.d/local/usr.sbin.slapd
+        create: true
+        marker: '# {mark} MAIL-CLOUD LDAP'
+        mode: '0644'
+        block: |
+          /srv/mail-cloud/identity/config/ r,
+          /srv/mail-cloud/identity/config/** r,
+          /srv/mail-cloud/identity/data/ rw,
+          /srv/mail-cloud/identity/data/** rwk,
+          /run/mail-cloud-ldap/ rw,
+          /run/mail-cloud-ldap/** rw,
+    - ansible.builtin.command: apparmor_parser -Q -T /etc/apparmor.d/usr.sbin.slapd
+      changed_when: false
+- name: Ubuntu CODE per-executable user namespace policy (no global sysctl change)
+  when: runtime_profile.os_id == 'ubuntu'
+  block:
+    - ansible.builtin.template:
+        src: apparmor-code.j2
+        dest: /etc/apparmor.d/mail-cloud-code
+        mode: '0644'
+    - ansible.builtin.command: apparmor_parser -Q -T /etc/apparmor.d/mail-cloud-code
+      changed_when: false
+- name: Detect active kernel AppArmor interface
+  ansible.builtin.stat:
+    path: /sys/kernel/security/apparmor/profiles
+  register: apparmor_active
+- name: Reload only the managed LDAP profile when AppArmor is active
+  ansible.builtin.command: apparmor_parser -r -T /etc/apparmor.d/usr.sbin.slapd
+  when: slapd_apparmor.stat.exists and apparmor_active.stat.exists
+  changed_when: false
+- name: Load only the managed Office policy when AppArmor is active
+  ansible.builtin.command: apparmor_parser -r -T /etc/apparmor.d/mail-cloud-code
+  when: runtime_profile.os_id == 'ubuntu' and apparmor_active.stat.exists
+  changed_when: false

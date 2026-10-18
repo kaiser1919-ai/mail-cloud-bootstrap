@@ -40,6 +40,7 @@
       block:
         - ansible.builtin.import_tasks: tasks/packages.yml
         - ansible.builtin.import_tasks: tasks/storage.yml
+        - ansible.builtin.import_tasks: tasks/apparmor.yml
         - ansible.builtin.import_tasks: tasks/identity.yml
         - ansible.builtin.import_tasks: tasks/runtime.yml
         - ansible.builtin.import_tasks: tasks/tls.yml

@@ -6,6 +6,7 @@
     policy_rc_d: 101
     install_recommends: false
     name:
+      - apparmor
       - nginx
       - certbot
       - curl

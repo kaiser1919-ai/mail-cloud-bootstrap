@@ -1,0 +1,7 @@
+# Ubuntu24.04 per-executable user namespace allowance.
+# Do NOT disable kernel.apparmor_restrict_unprivileged_userns globally.
+abi <abi/4.0>,
+include <tunables/global>
+profile mail-cloud-code /srv/mail-cloud/nextcloud/custom_apps/richdocumentscode/collabora/Collabora_Online.AppImage flags=(unconfined) {
+    userns,
+}

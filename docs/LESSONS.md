@@ -42,3 +42,5 @@ The installer is a new portability implementation of the original native archite
 - [Dovecot2.3 LDAP](https://doc.dovecot.org/2.3/configuration_manual/authentication/ldap/): distinct bind/database syntax.
 
 The earlier Debian-only profile is retained; actual Debian acceptance follows Ubuntu, not vice versa. Ubuntu-native CI is partial integration evidence, never a replacement for a full target VPS run.
+
+Ubuntu24.04 also restricts unprivileged user namespaces: a targeted AppImage policy and packaged LDAP profile local include are provided; AppArmor is never globally disabled. [Ubuntu24.04 release notes](https://documentation.ubuntu.com/release-notes/24.04/). Policy parsing in CI does not prove kernel enforcement or real Office behavior.

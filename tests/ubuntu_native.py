@@ -57,7 +57,7 @@ def main():
         Path(path).mkdir(parents=True,exist_ok=True)
     for path,user in [('/srv/mail-cloud/data/mail','mailcloud-vmail'),('/srv/mail-cloud/data/mail-redis','redis'),('/srv/mail-cloud/identity/config','openldap'),('/srv/mail-cloud/identity/data','openldap'),('/run/mail-cloud-ldap','openldap'),('/srv/mail-cloud/staging/nextcloud','mailcloud-nextcloud'),('/srv/mail-cloud/staging/nginx','www-data')]:
         shutil.chown(path,user,user)
-    shutil.copytree('/var/spool/postfix','/srv/mail-cloud/data/postfix',dirs_exist_ok=True)
+    run('cp','-a','/var/spool/postfix','/srv/mail-cloud/data/postfix')
     c=json.loads((ROOT/'example.json').read_text());c.update(cloud_host='disk.example.org',mail_host='mail.example.org')
     cfg={'parameters':c,'platform':{'key':'ubuntu-24.04',**p},'secrets':{'db':'fixturedb','ldap_admin':'fixtureadmin','ldap_cloud':'fixturecloud','ldap_mail':'synthetic-only','recovery':'fixturerecovery'},'passwords':{'alice':'fixture-alice-only','bob':'fixture-bob-only'}}
     write('/etc/mail-cloud-installer/config.json',json.dumps(cfg))
@@ -71,7 +71,19 @@ def main():
     run('openssl','req','-x509','-nodes','-newkey','rsa:2048','-days','1','-subj','/CN=disk.example.org','-addext','subjectAltName=DNS:disk.example.org,DNS:mail.example.org','-keyout',str(cert/'privkey.pem'),'-out',str(cert/'fullchain.pem'),stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     for name,dest in [('dovecot-2.3.conf.j2','/etc/dovecot/dovecot.conf'),('dovecot-ldap-2.3.conf.j2','/etc/dovecot/mail-cloud-ldap.conf'),('main.cf.j2','/etc/postfix/main.cf'),('ldap-mailboxes.cf.j2','/etc/postfix/ldap-mailboxes.cf'),('virtual-aliases.j2','/etc/postfix/virtual-aliases'),('php-fpm.conf.j2','/srv/mail-cloud/php-fpm.conf'),('nginx.conf.j2','/etc/nginx/sites-enabled/mail-cloud-native.conf')]:
         write(dest,render(name))
+        if dest.startswith('/etc/postfix/'):
+            shutil.chown(dest,'root','postfix');Path(dest).chmod(0o640)
     write('/etc/nginx/mail-cloud-access.conf','allow 127.0.0.1;\ndeny all;\n',0o644)
+    # Compile Ubuntu's AppArmor policy without attempting to load host-kernel profiles
+    # from a container. Actual enforcement remains a real-VPS test.
+    write('/etc/apparmor.d/mail-cloud-code',render('apparmor-code.j2'),0o644)
+    run('apparmor_parser','-Q','-T','/etc/apparmor.d/mail-cloud-code')
+    aa_tasks=yaml.safe_load((ROOT/'ansible/tasks/apparmor.yml').read_text())
+    rules=next(t for t in aa_tasks if t.get('name','').startswith('Preserve native LDAP'))['block'][1]['ansible.builtin.blockinfile']['block']
+    if Path('/etc/apparmor.d/usr.sbin.slapd').exists():
+        write('/etc/apparmor.d/local/usr.sbin.slapd',rules,0o644)
+        run('apparmor_parser','-Q','-T','/etc/apparmor.d/usr.sbin.slapd')
+    print('AppArmor parser checked; kernel enforcement NOT tested in a container.',flush=True)
     run('doveconf','-n',stdout=subprocess.DEVNULL)
     run('postfix','check')
     result=subprocess.run(['postconf','-n'],capture_output=True,text=True,check=True)
