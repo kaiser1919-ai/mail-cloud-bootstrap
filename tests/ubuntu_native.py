@@ -206,7 +206,7 @@ def main():
         for alias in ('postmaster','abuse','dmarc'):
             assert capture('postmap','-q',alias+'@example.org','regexp:/etc/postfix/virtual-aliases')=='alice@example.org'
         assert capture('postmap','-q','alice@example.org','ldap:/etc/postfix/ldap-mailboxes.cf')=='alice@example.org'
-        dovecot=subprocess.Popen(['dovecot','-F']);children.append(dovecot);wait(993)
+        dovecot=subprocess.Popen(['dovecot','-F'],stderr=logwrite);children.append(dovecot);wait(993)
         ctx=ssl.create_default_context(cafile=str(cert/'fullchain.pem'))
         class NamedContext:
             def wrap_socket(self,sock,server_hostname=None,**kw): return ctx.wrap_socket(sock,server_hostname='mail.example.org',**kw)
