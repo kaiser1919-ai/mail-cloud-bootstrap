@@ -111,6 +111,23 @@ def main():
     local=next(t['ansible.builtin.copy']['content'] for t in mail_tasks if t.get('ansible.builtin.copy',{}).get('dest')=='/etc/rspamd/rspamd.conf.local')
     write('/etc/rspamd/rspamd.conf.local',local,0o644)
     run('rspamadm','configtest')
+    # Root commonly clones with umask077. Source700/600 must not become
+    # unreadable PHP app code at the destination; exercise the ACTUAL copy task.
+    src=ROOT/'.runtime/pool-source/sentinel_pool'
+    shutil.copytree(ROOT/'ansible/files/sentinel_pool',src)
+    for path in [src,*src.rglob('*')]:path.chmod(0o700 if path.is_dir() else 0o600)
+    dest=ROOT/'.runtime/pool-destination';dest.mkdir(mode=0o755)
+    task=yaml.safe_load((ROOT/'ansible/tasks/pool.yml').read_text())[0]
+    task['ansible.builtin.copy']['src']=str(src)
+    play=[{'hosts':'all','gather_facts':False,'vars':{'nc':str(dest),'ansible_remote_tmp':str(ROOT/'.runtime/remote')},'tasks':[task]}]
+    playfile=ROOT/'.runtime/pool-copy.yml';playfile.write_text(yaml.safe_dump(play))
+    run('ansible-playbook','-i','localhost,','-c','local',str(playfile),cwd=ROOT)
+    app=dest/'custom_apps/sentinel_pool'
+    assert app.stat().st_mode & 0o777==0o755
+    assert (app/'appinfo/info.xml').stat().st_mode & 0o777==0o644
+    run('runuser','-u','mailcloud-nextcloud','--','test','-r',str(app/'appinfo/info.xml'))
+    run('runuser','-u','mailcloud-nextcloud','--','test','!','-w',str(app/'appinfo/info.xml'))
+    print('PASS root umask077 app copy: cloud user can read but not overwrite app source.',flush=True)
     # Target runtime profile used by every PHP helper, not system alternatives.
     run('python3','-c','from mc_runtime import php_binary; assert php_binary()=="/usr/bin/php8.3"',cwd='/usr/local/lib/mail-cloud')
     run('python3',str(ROOT/'ansible/files/identity.py'),'configure')

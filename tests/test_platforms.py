@@ -78,3 +78,11 @@ class Profiles(unittest.TestCase):
         self.assertIn('userns,',profile)
         for path in list((ROOT/'ansible').rglob('*.yml'))+list((ROOT/'installer').glob('*.py')):
             self.assertNotIn('apparmor_restrict_unprivileged_userns=0',path.read_text())
+
+    def test_local_app_copy_normalizes_restrictive_clone_modes(self):
+        import yaml
+        task=yaml.safe_load((ROOT/'ansible/tasks/pool.yml').read_text())[0]['ansible.builtin.copy']
+        self.assertEqual(task['mode'],'u=rwX,g=rX,o=rX')
+        self.assertEqual(task['directory_mode'],'0755')
+        self.assertEqual(task['owner'],'root')
+        self.assertEqual(task['group'],'root')

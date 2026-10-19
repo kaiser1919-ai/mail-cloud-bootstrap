@@ -27,3 +27,6 @@ Owner-approved change, 2026-10-18: Ubuntu24.04 first; retain Debian13 profile bu
 - Service aliases tested with native postmap and LDAP map lookup. Fixed overescaped domain regex using a literal [.] class.
 
 These tests do NOT execute the complete installer on a systemd host or validate filesystem mounts/cgroups/reboot, public ACME/DNS/SMTP, Nextcloud/Mail/Office browser behavior or real AppArmor enforcement. Those remain target VPS checks, not silently marked PASS.
+
+## Restrictive root clone permission regression, 2026-10-19
+A read-only check of a fresh root clone under umask077 showed app source directories700/files600. Copying those modes unchanged would make the local pool app unreadable to its PHP service account. The installer now assigns root ownership and normalizes public app files/directories to644/755; a native CI regression exercises the actual Ansible task against a700/600 fixture and verifies unprivileged read/no-write. Previous native evidence above predates this patch; its CI result is tracked separately before claiming the new source passed. Full VPS disk/mount/browser acceptance remains open.

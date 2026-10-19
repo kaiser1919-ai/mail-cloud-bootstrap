@@ -3,7 +3,10 @@
   ansible.builtin.copy:
     src: sentinel_pool
     dest: '{{ nc }}/custom_apps/'
-    mode: preserve
+    owner: root
+    group: root
+    mode: 'u=rwX,g=rX,o=rX'
+    directory_mode: '0755'
 - name: Enable local read-only capacity app
   ansible.builtin.command: /usr/local/lib/mail-cloud/occ app:enable sentinel_pool
 - ansible.builtin.copy:
