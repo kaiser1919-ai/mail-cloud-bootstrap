@@ -41,8 +41,8 @@ No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** i
 On the new VPS, install Git/Python, clone this repository into a project directory, inspect the source, then run from a root shell in its root:
 
 ```bash
-git clone https://github.com/kaiser1919-ai/mail-cloud-bootstrap.git
-cd mail-cloud-bootstrap
+git clone https://github.com/kaiser1919-ai/mail-cloud-office.git
+cd mail-cloud-office
 bash install.sh
 ```
 

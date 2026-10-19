@@ -13,7 +13,7 @@ Owner-approved change, 2026-10-18: Ubuntu24.04 first; retain Debian13 profile bu
 
 ## Historical initial-preview evidence (2026-10-18)
 - Local 36 unit tests PASS; both profiles render 20 templates each using real Ansible; syntax/compile checks PASS.
-- Ubuntu-native CI **PASS**: [39145337644](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39145337644), source `5430880d1e91427b84adba70679b6f955a2dfa95`. Both Python3.12/3.13 offline jobs and the native Ubuntu job succeeded.
+- Ubuntu-native CI **PASS**: [39145337644](https://github.com/kaiser1919-ai/mail-cloud-office/actions/runs/39145337644), source `5430880d1e91427b84adba70679b6f955a2dfa95`. Both Python3.12/3.13 offline jobs and the native Ubuntu job succeeded.
 - At that initial checkpoint the real target was not yet available; the current real-VPS checkpoint below supersedes that historical limitation. No production host was changed.
 - That initial review was FAIL pending the real tests. Consult the current review, not this historical checkpoint; Debian real-server testing remains deliberately deferred.
 
@@ -42,7 +42,7 @@ A read-only check of a fresh root clone under umask077 showed app source directo
 ## Current verified Ubuntu checkpoint — 2026-10-19
 This supersedes the historical in-progress checkpoints above. See the complete [spec review](spec-review.md) and [coverage](coverage.md).
 
-- Verified code `2c25cd1ef3f152d14f9a7602cae20ac74a84496d`:64 local unit tests, syntax and20templates×2profiles PASS; [CI39220165998](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39220165998), all3jobsSUCCESS. Documentation-only publication does not alter that implementation.
+- Verified code `2c25cd1ef3f152d14f9a7602cae20ac74a84496d`:64 local unit tests, syntax and20templates×2profiles PASS; [CI39220165998](https://github.com/kaiser1919-ai/mail-cloud-office/actions/runs/39220165998), all3jobsSUCCESS. Documentation-only publication does not alter that implementation.
 - Real clean Ubuntu24.04 systemd installation, interrupted resumes and complete full reruns PASS; final rerun ok136/failed0. Root credential and both volume-seal hashes remained unchanged; package receipt written. Concurrent master invocation refused.
 - Actual final reboot changed boot ID and preserved13 active services/timers, both sealed ext4 mounts,4GiB swap, native WOPI URLs and internal hostname resolution; post-boot master --check PASS. A pre-boot1MiB file matched SHA256 and was deleted204.
 - Controlled pool loss stopped all six pool-bound PHP/CODE/mail/persistent-Redis services. Underlying mountpoint remained empty and application-unwritable; memory-only cloud Redis correctly remains independent.

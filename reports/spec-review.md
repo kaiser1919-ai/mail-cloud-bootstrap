@@ -1,6 +1,6 @@
 # Review: specs/bootstrap.md — verdict: PASS
 
-**Verified code:** `2c25cd1ef3f152d14f9a7602cae20ac74a84496d`; [Ubuntu-native and offline CI](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39220165998), all3jobsSUCCESS,64unit tests. Documentation-only changes do not alter that code.
+**Verified code:** `2c25cd1ef3f152d14f9a7602cae20ac74a84496d`; [Ubuntu-native and offline CI](https://github.com/kaiser1919-ai/mail-cloud-office/actions/runs/39220165998), all3jobsSUCCESS,64unit tests. Documentation-only changes do not alter that code.
 
 Current checkpoint:2026-10-19. Ubuntu24.04 first; real Debian13 verification is deferred by the owner. Build coverage is not acceptance; this review is not an independent-agent security audit.
 
@@ -29,7 +29,7 @@ Current checkpoint:2026-10-19. Ubuntu24.04 first; real Debian13 verification is 
 ## Definition of Done
 - [x] D1: Локальные tests и syntax/render проверки проходят, нет персональных данных/секретов. — 64 unit tests, Ansible syntax,20templates×2profiles and Ubuntu-native parsers/integration CI passed; staged tracked-source secret scan passed.
 - [x] D2: Реальный clean Ubuntu 24.04 install + повторный запуск + reboot + negative mail/auth/privacy + Office save/reopen проверены; проверка Debian 13 отдельно отложена по поручению владельца; если тестовая VPS недоступна, фиксировать непроверенное и НЕ объявлять готовность. — Real Ubuntu clean-host deployment, full rerun, reboot, mail/auth/privacy negatives and actual Office ODT save/reopen passed. Limits and omitted broader production qualification listed below.
-- [x] D3: Публичный GitHub repo содержит проверенный исходный код, двуязычную документацию и мастер. — Public https://github.com/kaiser1919-ai/mail-cloud-bootstrap contains master, checked portable native components and bilingual docs; public-page/source safety checks recorded.
+- [x] D3: Публичный GitHub repo содержит проверенный исходный код, двуязычную документацию и мастер. — Public https://github.com/kaiser1919-ai/mail-cloud-office contains master, checked portable native components and bilingual docs; public-page/source safety checks recorded.
 
 ## Evidence and limitations
 - Bounded full filesystem stress is not application throughput or a promise of80GiB usable capacity. Test-mode100GiB system disk is not the production recommendation.
