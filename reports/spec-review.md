@@ -40,3 +40,9 @@ Ubuntu adaptation, approved scope revision 2026-10-18. Preview, not production-r
 Ubuntu adaptation source checks are separate from full VPS acceptance. No Docker runtime, external backup, PPA, cross-OS in-place migration or automatic distribution upgrade. Review is requirements-based, not an independent-agent security audit.
 
 Verified Ubuntu adaptation code: `5430880d1e91427b84adba70679b6f955a2dfa95`, [GitHub Actions](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39145337644). Subsequent documentation-only commit does not alter that code. Full VPS acceptance D2 remains open; Debian real-server checks are deferred.
+
+## R9 follow-up review — 2026-10-19 — FAIL (live acceptance pending)
+- [x] Original +25 GiB production preflight unchanged; opt-in +8 GiB mode persists, cannot change on resume. Exercised unit boundaries and mismatch rejection.
+- [x] Guards before/after all installation phases, disk/RAM/swap thresholds; download/extract budget checked. 43 unit tests and Ansible syntax pass.
+- [x] Stress runner only creates/deletes its own temporary directory inside mounted pool, checks pressure throughout, retains 1 GiB and verifies write/read SHA256. Read-through review; live stress not yet run.
+- [ ] R9 actual test and D2 clean install/rerun/reboot/app acceptance remain unverified. **Fix needed:** execute on authorised test VPS, record real results, resolve failures without weakening production guards. Earlier CI evidence does not cover this new patch.

@@ -38,16 +38,27 @@
     - name: Install phases
       when: bootstrap_action == 'install'
       block:
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/packages.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/storage.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/apparmor.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/identity.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/runtime.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/tls.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/cloud.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/mail.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/office.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
         - ansible.builtin.import_tasks: tasks/pool.yml
+        - ansible.builtin.import_tasks: tasks/guard.yml
     - name: Verify TOTP before publishing the portal
       when: bootstrap_action == 'open'
       block:

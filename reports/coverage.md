@@ -32,3 +32,11 @@ Ubuntu adaptation, approved scope revision 2026-10-18. Preview, not production-r
 Ubuntu adaptation source checks are separate from full VPS acceptance. No Docker runtime, external backup, PPA, cross-OS in-place migration or automatic distribution upgrade. Review is requirements-based, not an independent-agent security audit.
 
 Verified Ubuntu adaptation code: `5430880d1e91427b84adba70679b6f955a2dfa95`, [GitHub Actions](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39145337644). Subsequent documentation-only commit does not alter that code. Full VPS acceptance D2 remains open; Debian real-server checks are deferred.
+
+## R9 — explicit reduced-headroom test (2026-10-19)
+- [x] Persisted opt-in test mode, 8 GiB initial headroom; normal +25 GiB unchanged; resume mode change refused — wizard.py, test_pressure.py.
+- [x] Before/after phase guards, 2 GiB system reserve, 250 MiB MemAvailable/512 MiB SwapFree — pressure_guard.py, site.yml.
+- [x] Download/extraction budget and bounded isolated pool write/read SHA256 runner with own-fixture cleanup — fetch.py, tests/stress_pool.py.
+- [x] RU/EN warnings distinguish raw image/usable capacity and filesystem/app stress.
+- [ ] Real VPS stress run, full install/rerun/reboot/application acceptance — pending; not replaced by unit tests.
+- Local checks: 43 unit tests pass; Ansible syntax passes. Current native CI and VPS evidence pending for this change.

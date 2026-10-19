@@ -11,6 +11,11 @@ import tempfile
 import urllib.parse
 
 
+def require_space(path, extra=0):
+    if shutil.disk_usage(path).free < 2 * 1024**3 + extra:
+        raise ValueError('Pressure stop: archive operation would consume the 2 GiB system reserve')
+
+
 def extract(archive, destination, root):
     with tarfile.open(archive) as t:
         members = t.getmembers()
@@ -20,6 +25,8 @@ def extract(archive, destination, root):
             p = PurePosixPath(m.name)
             if p.is_absolute() or '..' in p.parts or not p.parts or p.parts[0] != root or not (m.isfile() or m.isdir()):
                 raise ValueError('Unsafe archive member')
+        # Account for filesystem blocks/inodes, not just logical tar sizes.
+        require_space(archive.parent, sum(((m.size + 4095) // 4096 + 1) * 4096 for m in members))
         t.extractall(destination, filter='data')
 
 
@@ -32,6 +39,7 @@ def main():
     if dest.exists():
         raise ValueError('Destination already exists; do not replace installed code')
     base = Path('/srv/mail-cloud/downloads')
+    require_space(base, 1000000000)
     with tempfile.TemporaryDirectory(dir=base) as work:
         work = Path(work)
         archive = work / 'package.tar'

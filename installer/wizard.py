@@ -94,7 +94,17 @@ def validate_resume_platform(values, current):
         raise ValueError('OS/runtime profile changed; refusing cross-OS migration')
 
 
-def preflight(c, resume):
+def validate_test_mode(values, requested):
+    previous = values.get('test_low_headroom', False)
+    if type(previous) is not bool or previous != requested:
+        raise ValueError('Test mode changed; resume with the original --test-low-headroom setting')
+
+
+def disk_requirement(pool_gib, resume, test_mode=False):
+    return ((2 if test_mode else 5) if resume else pool_gib + (8 if test_mode else 25)) * GIB
+
+
+def preflight(c, resume, test_mode=False):
     profile = detect_platform()
     if os.uname().machine != 'x86_64' or not Path('/run/systemd/system').is_dir():
         raise ValueError('Requires amd64 and a running systemd, not a container')
@@ -109,12 +119,12 @@ def preflight(c, resume):
                     s.bind(('0.0.0.0', port))
                 except OSError as e:
                     raise ValueError(f'Port {port} is occupied') from e
-        if shutil.disk_usage('/srv').free < (c['pool_gib'] + 25) * GIB:
-            raise ValueError('Need pool size +25 GiB free on /srv')
-    if resume and shutil.disk_usage('/srv').free < 5 * GIB:
-        raise ValueError('Need >=5 GiB free outside the reserved images before resuming')
+        if shutil.disk_usage('/srv').free < disk_requirement(c['pool_gib'], False, test_mode):
+            raise ValueError('Need pool size +' + ('8' if test_mode else '25') + ' GiB free on /srv')
+    if resume and shutil.disk_usage('/srv').free < disk_requirement(c['pool_gib'], True, test_mode):
+        raise ValueError('Need >=' + ('2' if test_mode else '5') + ' GiB free outside the reserved images before resuming')
     mem = dict((r.split(':', 1)[0], int(r.split()[1])) for r in Path('/proc/meminfo').read_text().splitlines() if r.startswith(('MemTotal:', 'SwapTotal:')))
-    if mem['MemTotal'] < 1800 * 1024 or mem['SwapTotal'] < 4 * 1024**2:
+    if mem['MemTotal'] < 1800 * 1024 or mem['SwapTotal'] < 4095 * 1024:
         raise ValueError('Need at least ~2 GiB RAM and 4 GiB swap (4+ GiB RAM recommended for Office)')
 
 
@@ -124,6 +134,7 @@ def run(argv):
 
 def main():
     ap = argparse.ArgumentParser(description='Mail/cloud bootstrap. See README.ru.md / README.md')
+    ap.add_argument('--test-low-headroom', action='store_true', help='TEST VPS ONLY: reserve pool+8 GiB instead of +25; retains pressure guards')
     ap.add_argument('--config', type=Path, help='Public parameters JSON, never shell sourced')
     ap.add_argument('--plan', action='store_true', help='Validate/print public configuration, no root/network/writes')
     ap.add_argument('--check', action='store_true', help='Run installed health checks, no reinstall')
@@ -152,6 +163,7 @@ def main():
     if resume:
         values = private_load(stored)
         c = validate(values['parameters'])
+        validate_test_mode(values, args.test_low_headroom)
         if args.config and validate(json.loads(args.config.read_text())) != c:
             raise ValueError('Parameters changed; refusing to rewrite an existing installation')
     else:
@@ -165,10 +177,11 @@ def main():
                           'acme_email': input('Email for certificate notices: ').strip(),
                           'users': input('Mailbox local names, comma separated (e.g. alice,bob): ').strip().split(',')})
         print(json.dumps(c, indent=2))
-        print('This installs services on this host; does NOT change DNS. Needs pool+25GiB free, 4GiB swap.')
+        print('This installs services on this host; does NOT change DNS. Needs 4GiB swap.')
+        print('TEST VPS: reduced disk headroom, pressure stops enabled.' if args.test_low_headroom else 'Need pool+25GiB free.')
         if input('Type INSTALL to proceed: ') != 'INSTALL':
             return
-    preflight(c, resume)
+    preflight(c, resume, args.test_low_headroom)
     profile = detect_platform()
     if resume:
         validate_resume_platform(values, profile)
@@ -176,7 +189,7 @@ def main():
             values['platform'] = profile
             atomic_json(stored, values)
     if not resume:
-        values = {'parameters': c, 'platform': profile, 'secrets': {k: secrets.token_hex(32) for k in ('db', 'ldap_cloud', 'ldap_mail', 'ldap_admin', 'recovery')},
+        values = {'parameters': c, 'platform': profile, 'test_low_headroom': args.test_low_headroom, 'secrets': {k: secrets.token_hex(32) for k in ('db', 'ldap_cloud', 'ldap_mail', 'ldap_admin', 'recovery')},
                   'passwords': {u: secrets.token_urlsafe(24) for u in c['users']}}
         atomic_json(stored, values)
     if profile['os_id'] == 'ubuntu' and not (args.check or args.open_portal):

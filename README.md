@@ -97,3 +97,20 @@ python3 -m venv .venv
 ```
 
 CI covers both profile/template branches and Python 3.12/3.13; an isolated Ubuntu24.04 container installs native packages and exercises parsers and synthetic loopback LDAP/IMAPS/LMTP/Redis checks. This is **not a complete VPS/systemd/reboot/public SMTP/Office acceptance test**. Docker is only a CI isolation tool, not the installation architecture. Source license: AGPL-3.0-only. Upstream apps/packages retain their respective licenses; proprietary fonts and private deployment artifacts are excluded.
+
+### Explicit low-headroom TEST VPS mode
+Only on an isolated authorised test VPS:
+`sudo ./install.sh --test-low-headroom --config /root/test-parameters.json`.
+Requires image size +8 GiB free instead of the unchanged production +25 GiB.
+Repeat the flag on every resume; an existing deployment cannot change modes.
+Before/after phases the installer requires 2 GiB outside images, 250 MiB
+MemAvailable and 512 MiB SwapFree. Downloads/extraction retain a 2 GiB system
+reserve. A pressure stop never deletes user data.
+After installation run `sudo python3 tests/stress_pool.py --confirm-test-vps --gib 2`,
+optionally increasing to `--gib 80`. The runner writes only its private temporary
+folder inside the mounted pool, retains 1 GiB pool space, verifies SHA256 on
+readback, and removes its own fixture. SIGKILL may leave a fixture for manual
+inspection. This is a filesystem stress test, not simultaneous Nextcloud/mail/
+Office acceptance. 80 GiB is the physical ext4 image size, not usable filesystem
+capacity; the UI reports actual capacity. This is not a production recommendation
+or a promise that every 100 GB disk can host the whole stack.

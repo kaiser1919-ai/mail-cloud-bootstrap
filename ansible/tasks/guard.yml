@@ -1,0 +1,5 @@
+---
+- name: Stop low-headroom test before resource exhaustion (no data deletion)
+  ansible.builtin.script: '{{ playbook_dir }}/files/pressure_guard.py'
+  changed_when: false
+  when: test_low_headroom | default(false) | bool
