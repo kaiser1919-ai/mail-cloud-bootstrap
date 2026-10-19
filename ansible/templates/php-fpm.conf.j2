@@ -1,6 +1,8 @@
 [global]
 pid = /run/mail-cloud-php/php.pid
-error_log = /proc/self/fd/2
+error_log = syslog
+syslog.ident = mail-cloud-php
+syslog.facility = daemon
 daemonize = no
 [cloud]
 user = mailcloud-nextcloud

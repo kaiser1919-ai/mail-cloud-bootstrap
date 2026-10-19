@@ -140,7 +140,18 @@ def main():
     run('ansible-playbook','-i','localhost,','-c','local',str(identity_play),cwd=ROOT)
     run('python3',str(ROOT/'ansible/files/identity.py'),'configure')
     children=[]
+    logread,logwrite=socket.socketpair()
     try:
+        # A journald stream is a socket: /proc/self/fd/2 cannot be reopened
+        # as an ordinary file. Native FPM must start with socket-backed stderr.
+        fpm=subprocess.Popen(['php-fpm8.3','--nodaemonize','--fpm-config','/srv/mail-cloud/php-fpm.conf'],stderr=logwrite,stdout=subprocess.DEVNULL)
+        children.append(fpm)
+        for _ in range(100):
+            if Path('/run/mail-cloud-php/php.sock').exists():break
+            if fpm.poll() is not None:raise RuntimeError('FPM failed with socket-backed stderr')
+            time.sleep(.1)
+        assert fpm.poll() is None and Path('/run/mail-cloud-php/php.sock').exists()
+        print('PASS FPM startup with journald-like socket stderr',flush=True)
         ldap=subprocess.Popen(['slapd','-f','/srv/mail-cloud/identity/config/slapd.conf','-h','ldap://127.0.0.1:1389/','-d','0','-u','openldap','-g','openldap']);children.append(ldap);wait(1389)
         run('python3',str(ROOT/'ansible/files/identity.py'),'populate')
         for alias in ('postmaster','abuse','dmarc'):
@@ -211,6 +222,7 @@ def main():
                 child.terminate()
                 try: child.wait(timeout=15)
                 except subprocess.TimeoutExpired: child.kill();child.wait()
+    logwrite.close();logread.close()
     versions=capture('dpkg-query','-W','php8.3-fpm','dovecot-core','postfix','rspamd','mariadb-server','redis-server','slapd','nginx','ansible-core')
     print('Package receipt:\n'+versions)
     print('NOT VERIFIED: full installer, mounts/cgroups/systemd boot, ACME/public DNS, external SMTP, Nextcloud/Mail/Office browser acceptance.')

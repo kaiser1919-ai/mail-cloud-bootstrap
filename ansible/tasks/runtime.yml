@@ -140,3 +140,11 @@
     name: mail-cloud-php
     enabled: true
     state: restarted
+- name: Wait for actual PHP-FPM readiness, not only systemd start acknowledgement
+  ansible.builtin.wait_for:
+    path: /run/mail-cloud-php/php.sock
+    state: present
+    timeout: 30
+- name: Confirm PHP-FPM remains active after socket creation
+  ansible.builtin.command: systemctl is-active mail-cloud-php
+  changed_when: false

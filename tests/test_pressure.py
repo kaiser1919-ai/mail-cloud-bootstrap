@@ -76,4 +76,19 @@ class ArchiveLinks(unittest.TestCase):
             f.extract(archive,work/'out','app')
             self.assertEqual((work/'out/app/map2').read_bytes(),b'ok')
 
+class PublicDNS(unittest.TestCase):
+    def test_explicit_public_query_not_local_stub(self):
+        dns=load('public_dns','ansible/files/dns.py')
+        with patch.object(dns.subprocess,'check_output',return_value='1.2.3.4\n') as lookup:
+            self.assertEqual(dns.dig('disk.example.org','A'),['1.2.3.4'])
+            self.assertIn('@1.1.1.1',lookup.call_args.args[0])
+    def test_public_fallback_and_failure(self):
+        dns=load('public_dns_fallback','ansible/files/dns.py')
+        error=dns.subprocess.CalledProcessError(9,['dig'])
+        with patch.object(dns.subprocess,'check_output',side_effect=[error,'1.2.3.4\n']) as lookup:
+            self.assertEqual(dns.dig('disk.example.org','A'),['1.2.3.4'])
+            self.assertIn('@8.8.8.8',lookup.call_args.args[0])
+        with patch.object(dns.subprocess,'check_output',side_effect=error),self.assertRaisesRegex(SystemExit,'Public DNS'):
+            dns.dig('disk.example.org','A')
+
 if __name__=='__main__':unittest.main()

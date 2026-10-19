@@ -54,3 +54,7 @@ Initial real install stopped at slaptest because its PID directory did not yet e
 
 ### Archive finding R2 / C3 / R6
 Real pinned core download passed SHA256 but failed the old blanket symlink prohibition. Build now validates archive-internal relative file-link chains against the full member table before tarfile data-filter extraction. Actual30144member/118link upstream table passes; synthetic safe-link extraction, absolute/outside/dangling/cyclic/ancestor/duplicate cases tested,48unitPASS. Need real target extraction/Nextcloud acceptance before passing R2/D2. LDAP fix separately verified by native CI39207315615 and real private LDAP start/populate. Overall FAIL remains.
+
+### R9 filesystem stress / remaining D2
+Full bounded test PASS:81939922944bytes write/read SHA256,1081.74s, retained1139945472bytes in pool and6875688960bytes outside; own fixture cleanup confirmed. No OOM/ENOSPC observed in this run. Config/seal preservation and parallel-lock refusal exercised on real VPS. This is not application stress or full R9/D2 acceptance.
+Core extraction now succeeded (7b844fa; CI39208320667SUCCESS). Real R5/R6 findings require fix verification: explicit public resolver to avoid systemd-resolved /etc/hosts synthesis; FPMsyslog and actual socket readiness instead of invalid journald fd reopen. 50unitPASS; fresh nativeCI/live results pending. OverallFAIL until full target/service/browser/reboot tests.
