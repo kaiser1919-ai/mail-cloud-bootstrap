@@ -92,10 +92,11 @@ class ArchiveLinks(unittest.TestCase):
         import tempfile
         with tempfile.TemporaryDirectory(dir=ROOT/'tests') as work:
             root=Path(work);(root/'version.php').write_text('fixture')
-            for name in ('lib/private','config','custom_apps','data'):(root/name).mkdir(parents=True,mode=0o700)
+            for name in ('lib/private','themes/example','config','custom_apps','data'):(root/name).mkdir(parents=True,mode=0o700)
             secret=root/'config/config.php';secret.write_text('fixture');secret.chmod(0o600)
             f.repair_core_directories(root)
             self.assertEqual((root/'lib/private').stat().st_mode&0o777,0o755)
+            self.assertEqual((root/'themes/example').stat().st_mode&0o777,0o755)
             self.assertEqual((root/'config').stat().st_mode&0o777,0o700)
             self.assertEqual((root/'custom_apps').stat().st_mode&0o777,0o700)
             self.assertEqual((root/'data').stat().st_mode&0o777,0o700)

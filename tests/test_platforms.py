@@ -9,6 +9,16 @@ from unittest.mock import patch
 from test_bootstrap import ROOT, w, module
 
 class Profiles(unittest.TestCase):
+    def test_dkim_signs_exact_selected_domain_not_parent_domain(self):
+        config=(ROOT/'ansible/templates/rspamd-dkim_signing.conf.j2').read_text()
+        self.assertIn('use_domain = "envelope";',config)
+        self.assertIn('use_esld = false;',config)
+
+    def test_office_activation_does_not_rewrite_immutable_core_javascript(self):
+        tasks=(ROOT/'ansible/tasks/office.yml').read_text()
+        self.assertIn('richdocuments:activate-config',tasks)
+        self.assertNotIn('maintenance:mimetype:update-js',tasks)
+
     def test_dependent_provisioner_runs_from_installed_helper_directory(self):
         import ast
         import yaml

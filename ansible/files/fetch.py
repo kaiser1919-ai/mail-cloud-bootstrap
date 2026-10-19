@@ -76,7 +76,7 @@ def repair_core_directories(root=Path('/srv/mail-cloud/nextcloud')):
     if root.is_symlink() or not (root / 'version.php').is_file():
         raise ValueError('Not an installer core tree')
     root.chmod(0o755)
-    for name in ('3rdparty', 'apps', 'core', 'dist', 'lib', 'ocs', 'ocs-provider', 'ocm-provider', 'resources', 'updater'):
+    for name in ('3rdparty', 'apps', 'core', 'dist', 'lib', 'ocs', 'ocs-provider', 'ocm-provider', 'resources', 'themes', 'updater'):
         top = root / name
         if top.is_symlink():
             raise ValueError('Unexpected core directory symlink')

@@ -258,13 +258,19 @@ def main():
         # Actual Rspamd3.8 task API and DKIM signing: no remote SMTP delivery.
         # Only loopback HTTP/Rspamd requests with synthetic message bytes.
         rspamd=subprocess.Popen(['rspamd','-f','-u','_rspamd','-g','_rspamd'],stdout=subprocess.DEVNULL);children.append(rspamd);wait(11333)
-        def scan(label,user='alice@example.org',mime='alice@example.org'):
+        def scan(label,user='alice@example.org',mime='alice@example.org',envelope='alice@example.org'):
             body=('From: '+mime+'\r\nTo: bob@example.net\r\nDate: '+formatdate(localtime=False)+'\r\nMessage-ID: <'+label+'@example.org>\r\nSubject: Synthetic native CI fixture\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOnly a local synthetic test.\r\n').encode()
-            request=urllib.request.Request('http://127.0.0.1:11333/checkv2',data=body,headers={'User':user,'From':'alice@example.org','Rcpt':'bob@example.net','IP':'127.0.0.1','Queue-Id':label})
+            request=urllib.request.Request('http://127.0.0.1:11333/checkv2',data=body,headers={'User':user,'From':envelope,'Rcpt':'bob@example.net','IP':'127.0.0.1','Queue-Id':label})
             with urllib.request.urlopen(request,timeout=60) as response:return json.load(response)
         good=scan('ci-valid-sender')
         assert 'DKIM_SIGNED' in good['symbols'],good
         assert 'MC_OUTBOUND_ALLOWED' in good['symbols'],good
+        assert 'example.org:s=mc' in good['symbols']['DKIM_SIGNED']['options'],good
+        sub=scan('ci-subdomain',user='alice@sub.example.org',mime='alice@sub.example.org',envelope='alice@sub.example.org')
+        assert 'sub.example.org:s=mc' in sub['symbols']['DKIM_SIGNED']['options'],sub
+        # Deliberately not a provisioned account: exact DKIM domain must not
+        # bypass the independent account-ownership policy.
+        assert sub['action']=='soft reject' and 'MC_OUTBOUND_BLOCKED' in sub['symbols'],sub
         for label,kwargs in [('ci-foreign-mime',{'mime':'bob@example.org'}),('ci-unknown-user',{'user':'unknown@example.org'})]:
             result=scan(label,**kwargs)
             assert result['action']=='soft reject' and 'MC_OUTBOUND_BLOCKED' in result['symbols'],result

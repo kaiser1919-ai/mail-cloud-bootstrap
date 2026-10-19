@@ -23,5 +23,3 @@
     - {key: disable_certificate_verification, value: 'no'}
 - name: Activate Office discovery
   ansible.builtin.command: /usr/local/lib/mail-cloud/occ richdocuments:activate-config
-- name: Register Office document handlers/templates
-  ansible.builtin.command: /usr/local/lib/mail-cloud/occ maintenance:mimetype:update-js
