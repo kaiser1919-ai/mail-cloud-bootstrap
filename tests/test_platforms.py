@@ -9,6 +9,28 @@ from unittest.mock import patch
 from test_bootstrap import ROOT, w, module
 
 class Profiles(unittest.TestCase):
+    def test_dependent_provisioner_runs_from_installed_helper_directory(self):
+        import ast
+        import yaml
+        tasks=yaml.safe_load((ROOT/'ansible/tasks/packages.yml').read_text())
+        copies=[t['ansible.builtin.copy'] for t in tasks if 'ansible.builtin.copy' in t]
+        installed={t.get('src'):t['dest'] for t in copies if 'src' in t}
+        self.assertEqual(installed['provision.py'],'/usr/local/lib/mail-cloud/provision')
+        self.assertEqual(Path(installed['provision.py']).parent,Path(installed['mc_runtime.py']).parent)
+        mail=yaml.safe_load((ROOT/'ansible/tasks/mail.yml').read_text())
+        provision=next(t for t in mail if t.get('name','').startswith('Configure Mail provisioner'))
+        self.assertEqual(provision['ansible.builtin.command'],installed['provision.py'])
+        self.assertTrue(provision['no_log'])
+        # Ansible script relocates only the script, losing sibling imports.
+        for path in (ROOT/'ansible/tasks').glob('*.yml'):
+            for task in yaml.safe_load(path.read_text()):
+                script=task.get('ansible.builtin.script')
+                if not isinstance(script,str): continue
+                source=ROOT/'ansible/files'/Path(script.split()[0]).name
+                if source.exists() and source.suffix=='.py':
+                    imports=[n.module for n in ast.walk(ast.parse(source.read_text())) if isinstance(n,ast.ImportFrom)]
+                    self.assertNotIn('mc_runtime',imports,str(path))
+
     def test_ubuntu_defaults(self):
         p=w.detect_platform({'ID':'ubuntu','VERSION_ID':'"24.04"'})
         self.assertEqual((p['php_version'],p['dovecot_series'],p['postfix_compat']),('8.3','2.3','3.6'))

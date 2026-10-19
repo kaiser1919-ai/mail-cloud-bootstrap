@@ -133,5 +133,5 @@
     state: started
   loop: [rspamd, dovecot, postfix]
 - name: Configure Mail provisioner without sharing passwords with another account
-  ansible.builtin.script: "{{ playbook_dir }}/files/provision.py"
+  ansible.builtin.command: /usr/local/lib/mail-cloud/provision
   no_log: true

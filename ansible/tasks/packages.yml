@@ -102,6 +102,11 @@
     src: auth.py
     dest: /usr/local/lib/mail-cloud/auth-check
     mode: '0755'
+- name: Install Mail provisioner next to its runtime-profile dependency
+  ansible.builtin.copy:
+    src: provision.py
+    dest: /usr/local/lib/mail-cloud/provision
+    mode: '0755'
 - name: Selected non-secret runtime profile (shared by every PHP helper)
   ansible.builtin.copy:
     dest: /usr/local/lib/mail-cloud/platform.json

@@ -165,6 +165,20 @@ def main():
     print('PASS root umask077 app copy: cloud user can read but not overwrite app source.',flush=True)
     # Target runtime profile used by every PHP helper, not system alternatives.
     run('python3','-c','from mc_runtime import php_binary; assert php_binary()=="/usr/bin/php8.3"',cwd='/usr/local/lib/mail-cloud')
+    # Execute the real copy task; script-module relocation used to lose the
+    # sibling import. Parse all embedded PHP without requiring a full Nextcloud.
+    import ast
+    provision_task=next(t for t in tasks if t.get('ansible.builtin.copy',{}).get('src')=='provision.py')
+    provision_task['ansible.builtin.copy']['src']=str(ROOT/'ansible/files/provision.py')
+    playfile=ROOT/'.runtime/provision-copy.yml'
+    playfile.write_text(yaml.safe_dump([{'hosts':'all','gather_facts':False,'tasks':[provision_task]}]))
+    run('ansible-playbook','-i','localhost,','-c','local',str(playfile),cwd=ROOT)
+    helper='/usr/local/lib/mail-cloud/provision'
+    run('python3','-c',"import importlib.util,sys;from pathlib import Path;sys.path.insert(0,str(Path(sys.argv[1]).parent));from mc_runtime import php_binary;assert php_binary()=='/usr/bin/php8.3'",helper,cwd='/')
+    for name in ('auth.py','provision.py'):
+        tree=ast.parse((ROOT/'ansible/files'/name).read_text())
+        code=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='code' for t in n.targets))
+        run('php8.3','-l',input=('<?php\n'+code).encode(),stdout=subprocess.DEVNULL)
     # CI used to pre-create this directory, hiding a first-install failure.
     # Exercise the actual pre-validation task from an absent runtime directory.
     shutil.rmtree('/run/mail-cloud-ldap')
