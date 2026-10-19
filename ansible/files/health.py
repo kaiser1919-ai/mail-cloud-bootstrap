@@ -15,9 +15,19 @@ def run(*argv):
     return subprocess.check_output(argv, text=True, stderr=subprocess.DEVNULL).strip()
 
 
+def check_local_routing(hostnames):
+    # Public DNS is checked separately via explicit external resolvers. Internal
+    # WOPI/Mail calls must retain hostname/TLS but enter the localhost-only gate.
+    for host in hostnames:
+        addresses = {row[4][0] for row in socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)}
+        if addresses != {'127.0.0.1'}:
+            raise RuntimeError('Local hostname routing missing; inspect hosts/cloud-init before opening the portal')
+
+
 def main():
     cfg = json.loads(Path('/etc/mail-cloud-installer/config.json').read_text())
     c = cfg['parameters']
+    check_local_routing((c['cloud_host'], c['mail_host']))
     units = ['nginx', 'mariadb', 'mail-cloud-ldap', 'mail-cloud-redis', 'mail-cloud-mail-redis', 'mail-cloud-php', 'dovecot', 'rspamd', 'postfix', 'mail-cloud-office-code', 'mail-cloud-cron.timer', 'mail-cloud-pool-usage.timer']
     for u in units:
         if run('systemctl', 'is-active', u) != 'active':

@@ -1,4 +1,21 @@
 ---
+- name: Detect packaged Debian-family cloud-init hosts template
+  ansible.builtin.stat:
+    path: /etc/cloud/templates/hosts.debian.tmpl
+    follow: false
+  register: cloud_hosts_template
+- name: Refuse an unexpected cloud-init template artifact
+  ansible.builtin.assert:
+    that:
+      - cloud_hosts_template.stat.isreg | default(false)
+      - not (cloud_hosts_template.stat.islnk | default(false))
+  when: cloud_hosts_template.stat.exists
+- name: Preserve only project loopback names when cloud-init regenerates hosts
+  ansible.builtin.blockinfile:
+    path: /etc/cloud/templates/hosts.debian.tmpl
+    marker: '# {mark} MAIL-CLOUD BOOTSTRAP'
+    block: '127.0.0.1 {{ c.cloud_host }} {{ c.mail_host }}'
+  when: cloud_hosts_template.stat.exists
 - name: Hostname-preserving local application connections (DNS checks still use dig)
   ansible.builtin.blockinfile:
     path: /etc/hosts

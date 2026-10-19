@@ -82,7 +82,7 @@ def main():
     packages=[env.from_string(x).render(php_version=p['php_version']) for x in apt['name']]
     write('/usr/sbin/policy-rc.d','#!/bin/sh\nexit 101\n',0o755)
     run('apt-get','update')
-    run('apt-get','install','-y','--no-install-recommends',*packages,'ansible-core')
+    run('apt-get','install','-y','--no-install-recommends',*packages,'ansible-core','cloud-init')
     # Exercise target distro Ansible2.16, not only the development version.
     run('ansible-playbook','-i','localhost,','-c','local','ansible/site.yml','--syntax-check',cwd=ROOT)
     run('bash','tests/render.sh',cwd=ROOT)
@@ -100,6 +100,22 @@ def main():
     write('/etc/mail-cloud-installer/config.json',json.dumps(cfg))
     context={'c':c,'secrets':cfg['secrets'],'base':'/srv/mail-cloud','nc':'/srv/mail-cloud/nextcloud','suffix':'dc=example,dc=org','php_version':'8.3','runtime_profile':p}
     def render(name): return env.from_string((ROOT/'ansible/templates'/name).read_text()).render(**context)
+    # Run the real narrow template patch, then the packaged cloud-init renderer.
+    # Never execute cloud-init boot modules or alter CI container /etc/hosts.
+    from cloudinit import templater
+    template=ROOT/'.runtime/hosts.debian.tmpl'
+    shutil.copyfile('/etc/cloud/templates/hosts.debian.tmpl',template)
+    tls_tasks=yaml.safe_load((ROOT/'ansible/tasks/tls.yml').read_text())
+    host_tasks=tls_tasks[:3]
+    host_tasks[0]['ansible.builtin.stat']['path']=str(template)
+    host_tasks[2]['ansible.builtin.blockinfile']['path']=str(template)
+    playfile=ROOT/'.runtime/cloud-hosts.yml'
+    playfile.write_text(yaml.safe_dump([{'hosts':'all','gather_facts':False,'vars':{'c':c},'tasks':host_tasks}]))
+    for _ in range(2):run('ansible-playbook','-i','localhost,','-c','local',str(playfile),cwd=ROOT)
+    regenerated=templater.render_from_file(str(template),{'hostname':'ci-host','fqdn':'ci-host.example.org'})
+    assert regenerated.count('127.0.0.1 disk.example.org mail.example.org')==1
+    assert 'ci-host.example.org' in regenerated and 'localhost' in regenerated
+    print('PASS packaged cloud-init regeneration preserves project routing and original host entries',flush=True)
     write('/usr/local/lib/mail-cloud/platform.json',json.dumps(p),0o644)
     for file in ('mc_runtime.py','occ.py'):
         dest='/usr/local/lib/mail-cloud/'+('occ' if file=='occ.py' else file)
