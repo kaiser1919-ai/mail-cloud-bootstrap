@@ -14,14 +14,14 @@ bash install.sh
 
 ## Minimum server requirements
 
-- Ubuntu24.04 LTS amd64, systemd and root. Debian13 profile is included; real Debian-server acceptance is still pending.
+- Ubuntu24.04 LTS **or Debian13**, amd64, systemd and root. Both profiles passed separate clean test-VPS installations.
 - Approximately **2GiB RAM + 4GiB SWAP**;4+GiB RAM preferable for Office. If swap is insufficient, the wizard explains it and offers to create the missing amount with separate consent. Existing swap is never disabled.
 - Free space on `/srv`: **pool size +25GiB after swap preparation**, default105GiB for an80GiB raw pool; up to4GiB additional disk space if swap must be created. Raw image capacity is not usable ext4 capacity.
 - A domain, static public IPv4, DNS and provider PTR control.
 - Inbound TCP80/443/25/587/993, outbound TCP25/HTTPS; native package repositories, GitHub, Nextcloud and ACME reachable. Firewall and SSH are not disabled.
 - **Not an existing mail/database/web server.** Foreign stacks, occupied ports or insufficient reserves cause refusal.
 
-> **Ubuntu24.04 test-VPS acceptance passed.** Clean install, full rerun, reboot, mail/privacy checks and native Office save/reopen passed, including bounded concurrent cloud/mail load. This is not a general production-security or deliverability certification. Use only a new clean VPS; prepare independent backup and owner MFA before real data. Debian13 server testing remains deferred. [Evidence and limits](reports/spec-review.md).
+> **Ubuntu24.04 and Debian13 test-VPS acceptance passed.** Clean install, full rerun, reboot, mail/privacy checks and native Office save/reopen passed, including bounded concurrent cloud/mail load. This is not a general production-security or deliverability certification. Use only a new clean VPS; prepare independent backup and owner MFA before real data. [Debian13 evidence](reports/debian-13-acceptance.md). [Evidence and limits](reports/spec-review.md).
 
 One terminal wizard asks for a domain, public IPv4, ACME contact email, mailbox count and each login. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from the native OS repository.
 
@@ -38,10 +38,10 @@ No Docker, AIO or Mailcow. The separate local `recovery_admin` is not a mailbox.
 
 ## Automatic OS profiles
 
-| OS | PHP/FPM | Dovecot | Acceptance order |
+| OS | PHP/FPM | Dovecot | Actual verification |
 |---|---|---|---|
-| **Ubuntu 24.04 LTS** | **8.3** | **2.3**, native separate LDAP/TLS config | **First** |
-| Debian 13 | 8.4 | 2.4, separate new-syntax template | After Ubuntu |
+| **Ubuntu 24.04 LTS** | **8.3** | **2.3**, native separate LDAP/TLS config | Install / rerun / reboot / Mail / Office — PASS |
+| Debian 13 | 8.4 | 2.4, separate new-syntax template | Install / rerun / reboot / Mail / Office — PASS |
 
 No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. AppArmor is preserved: local LDAP path rules and a CODE-AppImage-only user namespace allowance, never a global sysctl disable. The targeted policies were loaded on the real test kernel and Office executed successfully; no global AppArmor disable. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
 
@@ -66,6 +66,8 @@ bash install.sh --config my-parameters.json
 The installer prints exact A/MX/SPF/DKIM/DMARC/PTR requirements. It generates a new DKIM key and shows the actual public TXT record for `mc._domainkey`. Default SPF authorizes only the supplied IPv4; do not apply it blindly to a domain with other senders. This installer is not a migration tool for existing complex mail infrastructure.
 
 Set A records for both hosts, MX to `mail.DOMAIN`, SPF, DKIM, DMARC `p=none`, and ask the VPS provider to set PTR to `mail.DOMAIN`. Do not use a web CDN proxy for mail. Remove AAAA records: public mail is configured for IPv4 here.
+
+For an installation on `test.example.org` inside the `example.org` DNS zone, use record name `mc._domainkey.test` (full name `mc._domainkey.test.example.org`). This belongs to the **test subdomain**, not the parent mail service. After reinstalling the server, replace the old value with the new installer-generated key; do not create a second TXT record at that name or change the parent domain’s MX/SPF/DKIM.
 
 Without registrar/provider API credentials, DNS/PTR changes cannot be automated. The script stops on mismatches, preserving state; fix DNS, wait for propagation, then rerun. Mail services remain masked until configuration and full DNS acceptance, including across reboot. Passing DNS does **not** prove external TCP25 or delivery.
 
