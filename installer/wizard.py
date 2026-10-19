@@ -129,6 +129,10 @@ def preflight(c, resume, test_mode=False):
 
 
 def run(argv):
+    # Fresh Ubuntu images may still run unattended security upgrades. Never
+    # kill dpkg or delete locks; wait a bounded ten minutes for its own lock.
+    if argv and argv[0] == 'apt-get':
+        argv = [argv[0], '-o', 'DPkg::Lock::Timeout=600', *argv[1:]]
     subprocess.run(argv, check=True, cwd=ROOT, env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive', 'ANSIBLE_NOCOLOR': '1', 'ANSIBLE_DISPLAY_ARGS_TO_STDOUT': 'false', 'ANSIBLE_LOG_PATH': '/dev/null', 'ANSIBLE_LOCAL_TEMP': str(STATE / 'ansible-local'), 'ANSIBLE_HOME': str(STATE / 'ansible'), 'ANSIBLE_CONFIG': str(ROOT / 'ansible.cfg')})
 
 

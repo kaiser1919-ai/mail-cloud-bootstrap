@@ -16,6 +16,10 @@ p = load('pressure', 'ansible/files/pressure_guard.py')
 f = load('fetch_pressure', 'ansible/files/fetch.py')
 
 class Pressure(unittest.TestCase):
+    def test_apt_waits_for_security_update_lock(self):
+        with patch.object(w.subprocess,'run') as runner:
+            w.run(['apt-get','-y','install','ansible-core'])
+            self.assertEqual(runner.call_args.args[0],['apt-get','-o','DPkg::Lock::Timeout=600','-y','install','ansible-core'])
     def test_production_defaults_unchanged(self):
         self.assertEqual(w.disk_requirement(80,False),105*w.GIB)
         self.assertEqual(w.disk_requirement(80,True),5*w.GIB)

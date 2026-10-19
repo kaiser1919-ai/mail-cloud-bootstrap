@@ -1,6 +1,7 @@
 ---
 - name: Install native packages without starting public services
   ansible.builtin.apt:
+    lock_timeout: 600
     update_cache: true
     cache_valid_time: 3600
     policy_rc_d: 101
