@@ -62,6 +62,33 @@ class ArchiveLinks(unittest.TestCase):
         for name,target in links:
             m=tarfile.TarInfo(name);m.type=tarfile.SYMTYPE;m.linkname=target;members.append(m)
         return members
+    def test_root_umask_extraction_is_public_code_only(self):
+        import io,os,tarfile,tempfile
+        with tempfile.TemporaryDirectory(dir=ROOT/'tests') as work:
+            work=Path(work);archive=work/'fixture.tar'
+            members=self.members([])
+            executable=tarfile.TarInfo('app/sub/executable');executable.mode=0o755;executable.size=2;members.append(executable)
+            with tarfile.open(archive,'w') as t:
+                for m in members:t.addfile(m,io.BytesIO(b'ok'))
+            previous=os.umask(0o077)
+            try:f.extract(archive,work/'out','app')
+            finally:os.umask(previous)
+            self.assertEqual((work/'out/app').stat().st_mode&0o777,0o755)
+            self.assertEqual((work/'out/app/sub').stat().st_mode&0o777,0o755)
+            self.assertEqual((work/'out/app/license').stat().st_mode&0o777,0o644)
+            self.assertEqual((work/'out/app/sub/executable').stat().st_mode&0o777,0o755)
+    def test_legacy_directory_repair_never_changes_private_config(self):
+        import tempfile
+        with tempfile.TemporaryDirectory(dir=ROOT/'tests') as work:
+            root=Path(work);(root/'version.php').write_text('fixture')
+            for name in ('lib/private','config','custom_apps','data'):(root/name).mkdir(parents=True,mode=0o700)
+            secret=root/'config/config.php';secret.write_text('fixture');secret.chmod(0o600)
+            f.repair_core_directories(root)
+            self.assertEqual((root/'lib/private').stat().st_mode&0o777,0o755)
+            self.assertEqual((root/'config').stat().st_mode&0o777,0o700)
+            self.assertEqual((root/'custom_apps').stat().st_mode&0o777,0o700)
+            self.assertEqual((root/'data').stat().st_mode&0o777,0o700)
+            self.assertEqual(secret.stat().st_mode&0o777,0o600)
     def test_internal_file_and_chain(self):
         f.validate_members(self.members([('app/map','license'),('app/map2','map')]),'app')
     def test_unsafe_links(self):

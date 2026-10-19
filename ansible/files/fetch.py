@@ -58,6 +58,36 @@ def validate_members(members, root):
                 raise ValueError('Archive link escapes application root')
 
 
+def normalize_fresh_code(root):
+    # data_filter intentionally ignores archive directory modes; umask077
+    # would otherwise leave a valid root extraction unreadable to PHP/nginx.
+    for directory, dirs, files in os.walk(root, followlinks=False):
+        Path(directory).chmod(0o755)
+        for name in files:
+            path = Path(directory) / name
+            if not path.is_symlink():
+                path.chmod(0o755 if path.stat().st_mode & 0o100 else 0o644)
+
+
+def repair_core_directories(root=Path('/srv/mail-cloud/nextcloud')):
+    # Compatibility with interrupted preview extractions. Only known PUBLIC
+    # core-code directories: NEVER recurse through config/custom_apps/data
+    # or chmod existing files (config.php contains installation secrets).
+    if root.is_symlink() or not (root / 'version.php').is_file():
+        raise ValueError('Not an installer core tree')
+    root.chmod(0o755)
+    for name in ('3rdparty', 'apps', 'core', 'dist', 'lib', 'ocs', 'ocs-provider', 'ocm-provider', 'resources', 'updater'):
+        top = root / name
+        if top.is_symlink():
+            raise ValueError('Unexpected core directory symlink')
+        if not top.exists():
+            continue
+        for directory, dirs, files in os.walk(top, followlinks=False):
+            Path(directory).chmod(0o755)
+            if any((Path(directory) / child).is_symlink() for child in dirs):
+                raise ValueError('Unexpected nested core directory symlink')
+
+
 def extract(archive, destination, root):
     with tarfile.open(archive) as t:
         members = t.getmembers()
@@ -65,6 +95,7 @@ def extract(archive, destination, root):
         # Account for filesystem blocks/inodes, not just logical tar sizes.
         require_space(archive.parent, sum(((m.size + 4095) // 4096 + 1) * 4096 for m in members))
         t.extractall(destination, filter='data')
+        normalize_fresh_code(Path(destination) / root)
 
 
 def main():
@@ -94,4 +125,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    if sys.argv[1:] == ['--repair-core-directories']:
+        repair_core_directories()
+    else:
+        main()

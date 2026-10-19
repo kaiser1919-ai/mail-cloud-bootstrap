@@ -92,6 +92,9 @@
       - '{{ nc_sha256 }}'
       - '{{ nc }}'
     creates: '{{ nc }}/version.php'
+- name: Repair public core directory traversal after interrupted restrictive-umask preview extraction
+  ansible.builtin.command: /usr/local/lib/mail-cloud/fetch --repair-core-directories
+  changed_when: false
 - ansible.builtin.file:
     path: '{{ nc }}/{{ item }}'
     state: directory

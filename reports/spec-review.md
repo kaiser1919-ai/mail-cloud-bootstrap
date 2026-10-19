@@ -58,3 +58,6 @@ Real pinned core download passed SHA256 but failed the old blanket symlink prohi
 ### R9 filesystem stress / remaining D2
 Full bounded test PASS:81939922944bytes write/read SHA256,1081.74s, retained1139945472bytes in pool and6875688960bytes outside; own fixture cleanup confirmed. No OOM/ENOSPC observed in this run. Config/seal preservation and parallel-lock refusal exercised on real VPS. This is not application stress or full R9/D2 acceptance.
 Core extraction now succeeded (7b844fa; CI39208320667SUCCESS). Real R5/R6 findings require fix verification: explicit public resolver to avoid systemd-resolved /etc/hosts synthesis; FPMsyslog and actual socket readiness instead of invalid journald fd reopen. 50unitPASS; fresh nativeCI/live results pending. OverallFAIL until full target/service/browser/reboot tests.
+
+### R2/R6 real-host permission finding
+FPM is now active with real Unix socket; real initial DNS check and ACME issuance succeeded. Nextcloud installation stopped because restrictive umask made implicit tar directories700. Build normalizes only freshly extracted publisher-code and narrowly repairs public core directories on interrupted resumes; private config/data/file modes preserved by regression tests. 53unitPASS; target install verification pending. Full D2/app stress/browser/reboot remain FAIL/unverified, despite completed filesystem stress.
