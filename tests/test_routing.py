@@ -7,6 +7,18 @@ from test_bootstrap import ROOT,module
 health=module('health_routing',ROOT/'ansible/files/health.py')
 
 class LocalRouting(unittest.TestCase):
+    def test_office_waits_for_application_not_only_tcp_port(self):
+        tasks=yaml.safe_load((ROOT/'ansible/tasks/office.yml').read_text())
+        index=next(i for i,t in enumerate(tasks) if 'ansible.builtin.uri' in t)
+        task=tasks[index];uri=task['ansible.builtin.uri']
+        self.assertEqual(uri['url'],'https://{{ c.cloud_host }}/hosting/discovery')
+        self.assertTrue(uri['validate_certs']);self.assertFalse(uri['use_proxy'])
+        self.assertEqual(uri['follow_redirects'],'none');self.assertTrue(uri['return_content'])
+        self.assertIn('wopi-discovery',str(task['until']))
+        self.assertLessEqual(task['retries']*(uri['timeout']+task['delay']),180)
+        self.assertFalse(task.get('ignore_errors',False))
+        self.assertLess(index,next(i for i,t in enumerate(tasks) if t.get('name')=='Activate Office discovery'))
+
     def test_cli_office_configuration_invalidates_web_side_cache(self):
         tasks=yaml.safe_load((ROOT/'ansible/tasks/office.yml').read_text())
         index=next(i for i,t in enumerate(tasks) if t.get('name')=='Refresh web PHP app-config cache after CLI WOPI updates')

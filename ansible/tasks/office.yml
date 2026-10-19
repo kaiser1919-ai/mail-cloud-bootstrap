@@ -14,6 +14,24 @@
     host: 127.0.0.1
     port: 9983
     timeout: 180
+- name: Wait for TLS Office discovery XML before CLI activation (cold start)
+  ansible.builtin.uri:
+    url: 'https://{{ c.cloud_host }}/hosting/discovery'
+    method: GET
+    return_content: true
+    status_code: 200
+    timeout: 5
+    validate_certs: true
+    use_proxy: false
+    follow_redirects: none
+  register: office_discovery_ready
+  until:
+    - (office_discovery_ready.status | default(0)) == 200
+    - "'<wopi-discovery' in (office_discovery_ready.content | default(''))"
+  retries: 24
+  delay: 2
+  changed_when: false
+  no_log: true
 - name: Configure internal/public WOPI gateway with certificate verification
   ansible.builtin.command:
     argv: [/usr/local/lib/mail-cloud/occ, config:app:set, richdocuments, '{{ item.key }}', '--value={{ item.value }}']
