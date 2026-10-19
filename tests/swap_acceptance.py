@@ -36,6 +36,11 @@ def main():
         fstab.write_bytes(initial);fstab.chmod(0o600)
         def command(*argv):
             nonlocal fake_active
+            # CI container is overlayfs and lacks swapon capability. Only the
+            # kernel/filesystem activation boundary is simulated there; the
+            # explicit VPS mode uses actual findmnt, swapon and swapoff.
+            if argv[0]=='findmnt' and args.native_only:
+                return 'ext4'
             if argv[0]=='swapon' and args.native_only:
                 assert argv==('swapon',str(file));fake_active=True;return ''
             return original_command(*argv)
