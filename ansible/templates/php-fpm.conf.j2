@@ -27,3 +27,8 @@ php_admin_value[upload_tmp_dir] = /srv/mail-cloud/staging/nextcloud
 php_admin_value[sys_temp_dir] = /srv/mail-cloud/staging/nextcloud
 php_admin_flag[apc.enable_cli] = on
 php_admin_value[opcache.interned_strings_buffer] = 16
+
+; Private, bounded session store; the system-wide default is read-only here.
+php_admin_value[session.save_path] = /srv/mail-cloud/data/php-sessions
+php_admin_value[session.gc_probability] = 1
+php_admin_value[session.gc_divisor] = 100

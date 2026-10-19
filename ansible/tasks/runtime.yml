@@ -135,7 +135,7 @@
       ProtectSystem=strict
       ProtectHome=yes
       PrivateTmp=yes
-      ReadWritePaths=/srv/mail-cloud/nextcloud/config /srv/mail-cloud/nextcloud/custom_apps /srv/mail-cloud/data/nextcloud /srv/mail-cloud/staging /run/mail-cloud-php
+      ReadWritePaths=/srv/mail-cloud/nextcloud/config /srv/mail-cloud/nextcloud/custom_apps /srv/mail-cloud/data/nextcloud /srv/mail-cloud/data/php-sessions /srv/mail-cloud/staging /run/mail-cloud-php
       [Install]
       WantedBy=multi-user.target
 - ansible.builtin.systemd:

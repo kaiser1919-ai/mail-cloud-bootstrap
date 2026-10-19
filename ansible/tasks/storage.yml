@@ -59,6 +59,7 @@
     mode: '0700'
   loop:
     - {name: nextcloud, owner: mailcloud-nextcloud}
+    - {name: php-sessions, owner: mailcloud-nextcloud}
     - {name: mail, owner: mailcloud-vmail}
     - {name: rspamd, owner: _rspamd}
     - {name: mail-redis, owner: redis}

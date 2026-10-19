@@ -16,6 +16,12 @@ p = load('pressure', 'ansible/files/pressure_guard.py')
 f = load('fetch_pressure', 'ansible/files/fetch.py')
 
 class Pressure(unittest.TestCase):
+    def test_private_sessions_are_writable_inside_bounded_pool(self):
+        config=(ROOT/'ansible/templates/php-fpm.conf.j2').read_text()
+        self.assertIn('session.save_path] = /srv/mail-cloud/data/php-sessions',config)
+        self.assertIn('session.gc_probability] = 1',config)
+        self.assertIn('/srv/mail-cloud/data/php-sessions',(ROOT/'ansible/tasks/runtime.yml').read_text())
+        self.assertIn('{name: php-sessions, owner: mailcloud-nextcloud}',(ROOT/'ansible/tasks/storage.yml').read_text())
     def test_apt_waits_for_security_update_lock(self):
         with patch.object(w.subprocess,'run') as runner:
             w.run(['apt-get','-y','install','ansible-core'])

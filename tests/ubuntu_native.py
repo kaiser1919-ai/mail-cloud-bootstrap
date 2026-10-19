@@ -12,6 +12,7 @@ import smtplib
 import socket
 import ssl
 import subprocess
+import struct
 import sys
 import time
 import urllib.request
@@ -36,6 +37,39 @@ def wait(port):
 def write(path,text,mode=0o600):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text);path.chmod(mode)
 
+def fpm_request(cookie='', clear=False):
+    # Real FastCGI session round trip, not CLI ini emulation. No credentials
+    # or session identifiers are printed or stored in fixture source/argv.
+    def length(n):return bytes([n]) if n<128 else struct.pack('!I',n|0x80000000)
+    def record(kind,data=b''):
+        return struct.pack('!BBHHBB',1,kind,1,len(data),0,0)+data
+    params={'SCRIPT_FILENAME':'/srv/mail-cloud/nextcloud/native-session-probe.php','SCRIPT_NAME':'/native-session-probe.php','REQUEST_METHOD':'GET','SERVER_PROTOCOL':'HTTP/1.1','SERVER_NAME':'localhost','SERVER_PORT':'80','REMOTE_ADDR':'127.0.0.1','REQUEST_URI':'/native-session-probe.php','QUERY_STRING':'clear=1' if clear else ''}
+    if cookie:params['HTTP_COOKIE']=cookie
+    encoded=b''
+    for k,v in params.items():
+        k=k.encode();v=v.encode();encoded+=length(len(k))+length(len(v))+k+v
+    with socket.socket(socket.AF_UNIX) as client:
+        client.settimeout(15);client.connect('/run/mail-cloud-php/php.sock')
+        client.sendall(record(1,struct.pack('!HB5x',1,0))+record(4,encoded)+record(4)+record(5))
+        def receive(n):
+            result=b''
+            while len(result)<n:
+                data=client.recv(n-len(result))
+                if not data:raise RuntimeError('Unexpected FastCGI EOF')
+                result+=data
+            return result
+        output=b''
+        while True:
+            version,kind,rid,size,padding,_=struct.unpack('!BBHHBB',receive(8))
+            data=receive(size)
+            if padding:receive(padding)
+            if kind==6:output+=data
+            if kind==3:break
+    headers,body=output.split(b'\r\n\r\n',1)
+    from email.parser import BytesHeaderParser
+    return BytesHeaderParser().parsebytes(headers),body
+
+
 def main():
     release=Path('/etc/os-release').read_text()
     if os.geteuid()!=0 or os.environ.get('MAIL_CLOUD_EPHEMERAL_CI')!='1' or 'ID=ubuntu' not in release or 'VERSION_ID="24.04"' not in release:
@@ -55,10 +89,11 @@ def main():
     rendered=ROOT/'.runtime/render/ubuntu-24.04'
     for name in ('mailcloud-nextcloud','mailcloud-vmail'):
         run('useradd','--system','--no-create-home','--shell','/usr/sbin/nologin',name)
-    for path in ('/srv/mail-cloud/data/mail','/srv/mail-cloud/data/mail-redis','/srv/mail-cloud/identity/config','/srv/mail-cloud/identity/data','/run/mail-cloud-ldap','/run/mail-cloud-php','/srv/mail-cloud/staging/nextcloud','/srv/mail-cloud/staging/nginx','/srv/mail-cloud/state','/srv/mail-cloud/nextcloud/config'):
+    for path in ('/srv/mail-cloud/data/mail','/srv/mail-cloud/data/php-sessions','/srv/mail-cloud/data/mail-redis','/srv/mail-cloud/identity/config','/srv/mail-cloud/identity/data','/run/mail-cloud-ldap','/run/mail-cloud-php','/srv/mail-cloud/staging/nextcloud','/srv/mail-cloud/staging/nginx','/srv/mail-cloud/state','/srv/mail-cloud/nextcloud/config'):
         Path(path).mkdir(parents=True,exist_ok=True)
-    for path,user in [('/srv/mail-cloud/data/mail','mailcloud-vmail'),('/srv/mail-cloud/data/mail-redis','redis'),('/srv/mail-cloud/identity/config','openldap'),('/srv/mail-cloud/identity/data','openldap'),('/run/mail-cloud-ldap','openldap'),('/srv/mail-cloud/staging/nextcloud','mailcloud-nextcloud'),('/srv/mail-cloud/staging/nginx','www-data')]:
+    for path,user in [('/srv/mail-cloud/data/php-sessions','mailcloud-nextcloud'),('/srv/mail-cloud/data/mail','mailcloud-vmail'),('/srv/mail-cloud/data/mail-redis','redis'),('/srv/mail-cloud/identity/config','openldap'),('/srv/mail-cloud/identity/data','openldap'),('/run/mail-cloud-ldap','openldap'),('/srv/mail-cloud/staging/nextcloud','mailcloud-nextcloud'),('/srv/mail-cloud/staging/nginx','www-data')]:
         shutil.chown(path,user,user)
+    Path('/srv/mail-cloud/data/php-sessions').chmod(0o700)
     run('cp','-a','/var/spool/postfix','/srv/mail-cloud/data/postfix')
     c=json.loads((ROOT/'example.json').read_text());c.update(cloud_host='disk.example.org',mail_host='mail.example.org')
     cfg={'parameters':c,'platform':{'key':'ubuntu-24.04',**p},'secrets':{'db':'fixturedb','ldap_admin':'fixtureadmin','ldap_cloud':'fixturecloud','ldap_mail':'synthetic-only','recovery':'fixturerecovery'},'passwords':{'alice':'fixture-alice-only','bob':'fixture-bob-only'}}
@@ -152,6 +187,20 @@ def main():
             time.sleep(.1)
         assert fpm.poll() is None and Path('/run/mail-cloud-php/php.sock').exists()
         print('PASS FPM startup with journald-like socket stderr',flush=True)
+        probe=Path('/srv/mail-cloud/nextcloud/native-session-probe.php')
+        write(probe,"<?php session_start(); if(isset($_GET['clear'])){session_destroy(); echo 'cleared';}else{$_SESSION['probe']=($_SESSION['probe']??0)+1;echo $_SESSION['probe'];}",0o644)
+        from http.cookies import SimpleCookie
+        headers,body=fpm_request();assert body.strip()==b'1'
+        cookies=SimpleCookie();cookies.load(headers['Set-Cookie']);sid=cookies['PHPSESSID'].value
+        assert __import__('re').fullmatch(r'[A-Za-z0-9,-]+',sid)
+        session=Path('/srv/mail-cloud/data/php-sessions')/('sess_'+sid)
+        assert session.stat().st_uid==pwd.getpwnam('mailcloud-nextcloud').pw_uid
+        assert session.stat().st_mode&0o777==0o600
+        cookie='PHPSESSID='+sid
+        assert fpm_request(cookie)[1].strip()==b'2'
+        assert fpm_request(cookie,clear=True)[1].strip()==b'cleared'
+        assert not session.exists();probe.unlink()
+        print('PASS real FPM private session persistence, ownership/mode and own-session cleanup',flush=True)
         ldap=subprocess.Popen(['slapd','-f','/srv/mail-cloud/identity/config/slapd.conf','-h','ldap://127.0.0.1:1389/','-d','0','-u','openldap','-g','openldap']);children.append(ldap);wait(1389)
         run('python3',str(ROOT/'ansible/files/identity.py'),'populate')
         for alias in ('postmaster','abuse','dmarc'):

@@ -61,3 +61,6 @@ Core extraction now succeeded (7b844fa; CI39208320667SUCCESS). Real R5/R6 findin
 
 ### R2/R6 real-host permission finding
 FPM is now active with real Unix socket; real initial DNS check and ACME issuance succeeded. Nextcloud installation stopped because restrictive umask made implicit tar directories700. Build normalizes only freshly extracted publisher-code and narrowly repairs public core directories on interrupted resumes; private config/data/file modes preserved by regression tests. 53unitPASS; target install verification pending. Full D2/app stress/browser/reboot remain FAIL/unverified, despite completed filesystem stress.
+
+### Browser R2/R4 gap — session persistence
+Real LDAP CLI authentication passed but first browserlogin failed: PHP sessions attempted the read-only system-wide default. Build uses app-private bounded pool path with0700/0600files, narrow FPM writable path and GC; no global sandbox relaxation.54unitPASS; native two-request FastCGI persistence/ownership/cleanup regression added, not yet accepted on latest CI/live. All4actual app signatures passed before enable. Mail awaits actualDKIM; overallFAIL pending browser/app/mail/Office/reboot acceptance.
