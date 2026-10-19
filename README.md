@@ -7,10 +7,12 @@
 On a **new clean VPS**, from a root shell (Git and Python3 must be installed):
 
 ```bash
-git clone https://github.com/kaiser1919-ai/mail-cloud-office.git
+git clone --branch v1.0.0 --depth 1 https://github.com/kaiser1919-ai/mail-cloud-office.git
 cd mail-cloud-office
 bash install.sh
 ```
+
+[**v1.0.0 — one release for Ubuntu 24.04 and Debian 13**](https://github.com/kaiser1919-ai/mail-cloud-office/releases/tag/v1.0.0). The same wizard detects the OS automatically. The command pins the tested release rather than the changing `main` branch. Earlier OS-specific releases are historical snapshots.
 
 ## Minimum server requirements
 

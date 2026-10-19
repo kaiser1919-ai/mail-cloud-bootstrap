@@ -7,10 +7,12 @@
 На **новой чистой VPS**, из root-shell (Git и Python3 должны быть установлены):
 
 ```bash
-git clone https://github.com/kaiser1919-ai/mail-cloud-office.git
+git clone --branch v1.0.0 --depth 1 https://github.com/kaiser1919-ai/mail-cloud-office.git
 cd mail-cloud-office
 bash install.sh
 ```
+
+[**v1.0.0 — единый релиз для Ubuntu 24.04 и Debian 13**](https://github.com/kaiser1919-ai/mail-cloud-office/releases/tag/v1.0.0). Один мастер определяет ОС автоматически. Команда устанавливает зафиксированный проверенный релиз, а не изменяемую ветку `main`. Прежние релизы по ОС сохранены как исторические снимки.
 
 ## Минимальные требования к серверу
 
