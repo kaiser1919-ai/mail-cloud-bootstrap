@@ -130,6 +130,14 @@ def main():
     print('PASS root umask077 app copy: cloud user can read but not overwrite app source.',flush=True)
     # Target runtime profile used by every PHP helper, not system alternatives.
     run('python3','-c','from mc_runtime import php_binary; assert php_binary()=="/usr/bin/php8.3"',cwd='/usr/local/lib/mail-cloud')
+    # CI used to pre-create this directory, hiding a first-install failure.
+    # Exercise the actual pre-validation task from an absent runtime directory.
+    shutil.rmtree('/run/mail-cloud-ldap')
+    identity_tasks=yaml.safe_load((ROOT/'ansible/tasks/identity.yml').read_text())
+    runtime_task=next(t for t in identity_tasks if t.get('ansible.builtin.file',{}).get('path')=='/run/mail-cloud-ldap')
+    identity_play=ROOT/'.runtime/identity-runtime.yml'
+    identity_play.write_text(yaml.safe_dump([{'hosts':'all','gather_facts':False,'vars':{'ansible_remote_tmp':str(ROOT/'.runtime/remote')},'tasks':[runtime_task]}]))
+    run('ansible-playbook','-i','localhost,','-c','local',str(identity_play),cwd=ROOT)
     run('python3',str(ROOT/'ansible/files/identity.py'),'configure')
     children=[]
     try:

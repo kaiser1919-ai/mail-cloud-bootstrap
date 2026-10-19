@@ -7,6 +7,13 @@
     group: openldap
     mode: '0700'
   loop: [data, config]
+- name: LDAP runtime directory exists before slaptest (fresh host has no service runtime yet)
+  ansible.builtin.file:
+    path: /run/mail-cloud-ldap
+    state: directory
+    owner: openldap
+    group: openldap
+    mode: '0755'
 - name: Generate LDAP configuration and hashed identities
   ansible.builtin.script: "{{ playbook_dir }}/files/identity.py configure"
   no_log: true

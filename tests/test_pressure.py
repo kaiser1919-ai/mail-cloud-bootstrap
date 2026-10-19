@@ -27,6 +27,12 @@ class Pressure(unittest.TestCase):
         w.validate_test_mode({'test_low_headroom':True},True)
         for previous, requested in (({},True),({'test_low_headroom':True},False),({'test_low_headroom':1},True)):
             with self.assertRaises(ValueError):w.validate_test_mode(previous,requested)
+    def test_ldap_runtime_precedes_validation(self):
+        import yaml
+        tasks=yaml.safe_load((ROOT/'ansible/tasks/identity.yml').read_text())
+        runtime=next(i for i,t in enumerate(tasks) if t.get('ansible.builtin.file',{}).get('path')=='/run/mail-cloud-ldap')
+        configure=next(i for i,t in enumerate(tasks) if 'identity.py configure' in t.get('ansible.builtin.script',''))
+        self.assertLess(runtime,configure)
     def test_pressure_boundary(self):
         memory={'MemAvailable':250*1024,'SwapFree':512*1024}
         self.assertEqual(p.check(meminfo=memory,free=2*p.GIB)['root_free_bytes'],2*p.GIB)

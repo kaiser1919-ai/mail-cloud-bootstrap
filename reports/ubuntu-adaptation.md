@@ -30,3 +30,5 @@ These tests do NOT execute the complete installer on a systemd host or validate 
 
 ## Restrictive root clone permission regression, 2026-10-19
 A read-only check of a fresh root clone under umask077 showed app source directories700/files600. Copying those modes unchanged would make the local pool app unreadable to its PHP service account. The installer now assigns root ownership and normalizes public app files/directories to644/755; a native CI regression exercises the actual Ansible task against a700/600 fixture and verifies unprivileged read/no-write. Previous native evidence above predates this patch; its CI result is tracked separately before claiming the new source passed. Full VPS disk/mount/browser acceptance remains open.
+
+2026-10-19: root-umask copy regression + explicit low-headroom test mode covered by all three successful jobs of CI39206838664, code92e90028788c255783fae3eac4940e0888df7417. Clean real Ubuntu VPS installation has started; full acceptance still pending.

@@ -40,3 +40,5 @@ Verified Ubuntu adaptation code: `5430880d1e91427b84adba70679b6f955a2dfa95`, [Gi
 - [x] RU/EN warnings distinguish raw image/usable capacity and filesystem/app stress.
 - [ ] Real VPS stress run, full install/rerun/reboot/application acceptance — pending; not replaced by unit tests.
 - Local checks: 43 unit tests pass; Ansible syntax passes. Current native CI and VPS evidence pending for this change.
+
+Evidence update: code `92e90028788c255783fae3eac4940e0888df7417`, GitHub Actions run `39206838664`: ubuntu-native and offline Python3.12/3.13 all SUCCESS. Local 43 unit tests, Ansible syntax and 20 templates ×2 profiles PASS. Live VPS installation in progress; no live acceptance claim.

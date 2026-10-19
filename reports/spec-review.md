@@ -46,3 +46,5 @@ Verified Ubuntu adaptation code: `5430880d1e91427b84adba70679b6f955a2dfa95`, [Gi
 - [x] Guards before/after all installation phases, disk/RAM/swap thresholds; download/extract budget checked. 43 unit tests and Ansible syntax pass.
 - [x] Stress runner only creates/deletes its own temporary directory inside mounted pool, checks pressure throughout, retains 1 GiB and verifies write/read SHA256. Read-through review; live stress not yet run.
 - [ ] R9 actual test and D2 clean install/rerun/reboot/app acceptance remain unverified. **Fix needed:** execute on authorised test VPS, record real results, resolve failures without weakening production guards. Earlier CI evidence does not cover this new patch.
+
+Evidence update: code `92e90028788c255783fae3eac4940e0888df7417`, GitHub Actions run `39206838664`: ubuntu-native and offline Python3.12/3.13 all SUCCESS. Local 43 unit tests, Ansible syntax and 20 templates ×2 profiles PASS. Live VPS installation in progress; no live acceptance claim.
