@@ -16,7 +16,7 @@
 | Missing mount silently redirected writes to root | Require mount units and BindsTo dependencies; capacity collector refuses a missing/wrong filesystem instead of publishing root-disk numbers. |
 | Tiny `/tmp` filled during Office downloads/extraction | Downloads stay in the project tree; PHP/Nginx/Office temp is on a separate bounded disk filesystem, not RAM tmpfs. |
 | CODE spawned inside PHP inherited an incompatible sandbox/lifetime | Own supervised CODE service and bounded resource budget. Loopback listener only; never expose 9983 publicly. |
-| Broad `custom_apps/*.php` permission fixed one problem but opened others | Exact CODE proxy.php FastCGI exception only, plus explicit Office routes and websocket support. |
+| Broad `custom_apps/*.php` permission fixed one problem but opened others | Native Nginx Office HTTP/WebSocket routes only; the legacy PHP auto-start proxy is blocked, with no broad custom-app PHP execution exception. |
 | Mail/Calendar JS became 403 or the wrong MIME | Permit real signed static assets including `.mjs`; keep data/config/hidden files forbidden. |
 | GitHub CDN HTTP/2 transfers stalled on the RU host | HTTP/1.1, bounded connect/total/no-progress timeouts and retries; pinned publisher release, no arbitrary mirrors. |
 | Application availability was checked in one cached PHP process | Separate occ executions per operation/user; real browser acceptance remains mandatory. |

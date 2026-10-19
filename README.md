@@ -1,8 +1,8 @@
 # Self-hosted cloud, mail, calendar and Office
 
-[Русский](README.ru.md) · [Operations](docs/OPERATIONS.md) · [Deployment lessons](docs/LESSONS.md)
+[Русский](README.ru.md) · [Architecture](docs/ARCHITECTURE.md) · [Operations](docs/OPERATIONS.md) · [Deployment lessons](docs/LESSONS.md)
 
-> **Preview — NOT production-ready.** Local contract/template/syntax checks are available; a complete clean Ubuntu 24.04 deployment, rerun, reboot and browser acceptance have **not yet been verified**. Never run this on an existing production machine. [Exact review status](reports/spec-review.md).
+> **Ubuntu24.04 test-VPS acceptance passed.** Clean install, full rerun, reboot, mail/privacy checks and native Office save/reopen passed, including bounded concurrent cloud/mail load. This is not a general production-security or deliverability certification. Use only a new clean VPS; prepare independent backup and owner MFA before real data. Debian13 server testing remains deferred. [Evidence and limits](reports/spec-review.md).
 
 One terminal wizard asks for a domain, public IPv4, ACME contact email and mailbox names. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from the native OS repository.
 
@@ -25,7 +25,7 @@ You need a domain, DNS and provider PTR control, a static public IPv4, inbound T
 
 Existing Nginx/DB/Postfix/Dovecot/LDAP, occupied ports or an existing `/srv/mail-cloud` cause a refusal; there is no automatic adoption, destructive cleanup or migration. Configure swap yourself beforehand if necessary.
 
-Ubuntu adaptation checks passed on native packages: see [verification evidence](reports/ubuntu-adaptation.md). This still does not mean a full VPS installation passed.
+Ubuntu adaptation checks passed on native packages: see [verification evidence](reports/ubuntu-adaptation.md). Actual Ubuntu systemd/VPS results are recorded separately in [the acceptance report](reports/spec-review.md).
 
 ## Automatic OS profiles
 
@@ -34,7 +34,7 @@ Ubuntu adaptation checks passed on native packages: see [verification evidence](
 | **Ubuntu 24.04 LTS** | **8.3** | **2.3**, native separate LDAP/TLS config | **First** |
 | Debian 13 | 8.4 | 2.4, separate new-syntax template | After Ubuntu |
 
-No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. AppArmor is preserved: local LDAP path rules and a CODE-AppImage-only user namespace allowance, never a global sysctl disable. Real enforcement remains a VPS acceptance check. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
+No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. AppArmor is preserved: local LDAP path rules and a CODE-AppImage-only user namespace allowance, never a global sysctl disable. The targeted policies were loaded on the real test kernel and Office executed successfully; no global AppArmor disable. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
 
 ## Start
 

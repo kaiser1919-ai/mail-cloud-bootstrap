@@ -79,7 +79,7 @@ Protect the backup passphrase/key separately from the source VPS. Retention requ
 
 ## Приёмка / Acceptance checklist
 
-These are **pending real-environment tests**, not CI results:
+This is the **broader operator production-qualification checklist**, not a claim that every item below passed. The actual Ubuntu test subset and remaining limitations are recorded in [the current review](../reports/spec-review.md); external-provider delivery, owner MFA login, every Office format/co-edit case and independent restore still need operator qualification:
 
 1. Clean Ubuntu24.04 installation (Debian13 native acceptance deferred), interrupted DNS/download recovery, rerun without new passwords/formatting, reboot with all dependencies active and both mounts intact.
 2. Real external HTTPS and TLS renewal; TOTP and backup-code login; fresh LDAP cloud/Mail/IMAP/submission logins, wrong and cross-account password rejection.

@@ -1,4 +1,4 @@
-# Ubuntu24.04 adaptation — preview
+# Ubuntu24.04 adaptation — native CI and real VPS evidence
 
 Owner-approved change, 2026-10-18: Ubuntu24.04 first; retain Debian13 profile but defer its native-server acceptance.
 
@@ -11,11 +11,11 @@ Owner-approved change, 2026-10-18: Ubuntu24.04 first; retain Debian13 profile bu
 
 - AppArmor: project LDAP local paths and targeted CODE AppImage userns policy, no global disable.
 
-## Evidence so far
+## Historical initial-preview evidence (2026-10-18)
 - Local 36 unit tests PASS; both profiles render 20 templates each using real Ansible; syntax/compile checks PASS.
 - Ubuntu-native CI **PASS**: [39145337644](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39145337644), source `5430880d1e91427b84adba70679b6f955a2dfa95`. Both Python3.12/3.13 offline jobs and the native Ubuntu job succeeded.
-- Complete target install/rerun/reboot/systemd/cgroup/mount/ACME/public SMTP/Nextcloud/Office browser checks: pending actual Ubuntu test VPS access. No production host was changed.
-- Overall spec-review remains FAIL until the full accepted VPS checks are complete; Debian real-server testing is deliberately deferred.
+- At that initial checkpoint the real target was not yet available; the current real-VPS checkpoint below supersedes that historical limitation. No production host was changed.
+- That initial review was FAIL pending the real tests. Consult the current review, not this historical checkpoint; Debian real-server testing remains deliberately deferred.
 
 ## Native checks actually exercised
 - All installer package names resolve/install from Ubuntu24.04 main/universe. No PHP PPA.
@@ -38,3 +38,17 @@ A read-only check of a fresh root clone under umask077 showed app source directo
 - Real bounded filesystem stress completed:81939922944bytes write/read SHA256 in1081.74s, own fixture cleaned, system reserve preserved. Not an application stress/reboot/Office acceptance result.
 - Clean-host discoveries fixed in source/tests: LDAP runtime-before-slaptest;118safe upstream licence symlinks; explicit public DNS rather than systemd-resolved hosts synthesis; native FPMsyslog/socket-readiness; bounded waiting for unattended-upgrades lock without killing security updates. Actual public DNS initial check nowPASS.
 - Full master/service/browser/reboot acceptance remains in progress; do not treat native container CI or filesystem stress as full D2 completion.
+
+## Current verified Ubuntu checkpoint — 2026-10-19
+This supersedes the historical in-progress checkpoints above. See the complete [spec review](spec-review.md) and [coverage](coverage.md).
+
+- Verified code `2c25cd1ef3f152d14f9a7602cae20ac74a84496d`:64 local unit tests, syntax and20templates×2profiles PASS; [CI39220165998](https://github.com/kaiser1919-ai/mail-cloud-bootstrap/actions/runs/39220165998), all3jobsSUCCESS. Documentation-only publication does not alter that implementation.
+- Real clean Ubuntu24.04 systemd installation, interrupted resumes and complete full reruns PASS; final rerun ok136/failed0. Root credential and both volume-seal hashes remained unchanged; package receipt written. Concurrent master invocation refused.
+- Actual final reboot changed boot ID and preserved13 active services/timers, both sealed ext4 mounts,4GiB swap, native WOPI URLs and internal hostname resolution; post-boot master --check PASS. A pre-boot1MiB file matched SHA256 and was deleted204.
+- Controlled pool loss stopped all six pool-bound PHP/CODE/mail/persistent-Redis services. Underlying mountpoint remained empty and application-unwritable; memory-only cloud Redis correctly remains independent.
+- Real SAN ACME/verified HTTPS, A/MX/SPF/DKIM/DMARC/PTR and renewal staging dry-run/deploy hook PASS. External MX TCP25 EHLO works; no external message sent, reputation/deliverability not certified.
+- Fresh browser cloud/Mail login without a second password,0pageerrors, WebDAV write/read/wrong/cross-password/privacy and own cleanup PASS. Real local two-way SMTP→IMAPS, exact-domain DKIM cryptographic verification and own UID-only cleanup PASS. Actual stopped-milter refusal/restore PASS; remaining rate/policy failures separately exercised by native CI.
+- Real native Office ODT edit/save/download-content/close/reopen PASS, saved text visually inspected. The final post-reboot cold test also passed with own cleanup204. Nginx HTTP/WebSocket transport avoids PHP proxy starvation; legacy PHP auto-start/admin endpoints blocked. CODE remains in its bounded systemd unit; AppArmor remains enabled.
+- Concurrent Office editing plus256MiB random WebDAV write/read/isolation and two local512KiB mail attachments PASS. DAV run34.87s; sampled minima root6162337792bytes,MemAvailable781832KiB,SwapFree4142800KiB. Post-load Office save/reopen and own fixture cleanup PASS. This does not certify many-user or long-duration capacity.
+- Earlier full bounded filesystem stress:81939922944bytes SHA256 write/read in1081.74s, pool reserve1139945472bytes/root free6875688960bytes; own fixture removed. Not application throughput.80GiB raw image yielded83955703808bytes filesystem total, not80GiB usable. Ordinary production pool+25GiB reserve unchanged; reduced headroom was explicitly TEST-only.
+- Recovery MFA enrolment/public opening remain with the owner; portal stays localhost-only. External encrypted backup/restore is NOT implemented. Debian13 actual server acceptance, external-provider mail delivery, all Office formats/co-editing and broader production qualification remain separate, not silently marked PASS.
