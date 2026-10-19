@@ -49,6 +49,16 @@ class Profiles(unittest.TestCase):
                     imports=[n.module for n in ast.walk(ast.parse(source.read_text())) if isinstance(n,ast.ImportFrom)]
                     self.assertNotIn('mc_runtime',imports,str(path))
 
+    def test_mail_parallel_imap_sessions_have_bounded_headroom(self):
+        for series in ('2.3', '2.4'):
+            text=(ROOT/('ansible/templates/dovecot-'+series+'.conf.j2')).read_text()
+            self.assertIn('service imap-login {\n # TLS login processes can remain for the lifetime of each proxied connection.\n process_limit = 8',text)
+            self.assertIn('service imap {\n process_limit = 16',text)
+            self.assertIn('mail_max_userip_connections = 4',text)
+        limits=(ROOT/'ansible/tasks/mail.yml').read_text()
+        self.assertIn('MemoryMax=384M',limits)
+        self.assertIn('TasksMax=64',limits)
+
     def test_ubuntu_defaults(self):
         p=w.detect_platform({'ID':'ubuntu','VERSION_ID':'"24.04"'})
         self.assertEqual((p['php_version'],p['dovecot_series'],p['postfix_compat']),('8.3','2.3','3.6'))

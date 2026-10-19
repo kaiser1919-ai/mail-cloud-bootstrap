@@ -65,7 +65,8 @@ namespace inbox {
  }
 }
 service imap-login {
- process_limit = 2
+ # TLS login processes can remain for the lifetime of each proxied connection.
+ process_limit = 8
  inet_listener imap {
   port = 0
  }
@@ -75,7 +76,7 @@ service imap-login {
  }
 }
 service imap {
- process_limit = 4
+ process_limit = 16
 }
 service auth {
  unix_listener /srv/mail-cloud/data/postfix/private/auth {
