@@ -48,3 +48,9 @@ Verified Ubuntu adaptation code: `5430880d1e91427b84adba70679b6f955a2dfa95`, [Gi
 - [ ] R9 actual test and D2 clean install/rerun/reboot/app acceptance remain unverified. **Fix needed:** execute on authorised test VPS, record real results, resolve failures without weakening production guards. Earlier CI evidence does not cover this new patch.
 
 Evidence update: code `92e90028788c255783fae3eac4940e0888df7417`, GitHub Actions run `39206838664`: ubuntu-native and offline Python3.12/3.13 all SUCCESS. Local 43 unit tests, Ansible syntax and 20 templates ×2 profiles PASS. Live VPS installation in progress; no live acceptance claim.
+
+### Real-host finding R6 / D2
+Initial real install stopped at slaptest because its PID directory did not yet exist. Native CI had pre-created that directory, hiding the ordering failure. Build fix fb97c12081df6b2fc5fef8535394cef8999c60c6 creates the runtime directory before configuration validation and tests the absent-directory path. 44 local unit tests pass; new native CI and resumed real installation must verify it. Data and credentials preserved; no reformat/reset performed. Initial2GiB filesystem stress passed, but full stress and D2 still pending. Overall verdict remains FAIL.
+
+### Archive finding R2 / C3 / R6
+Real pinned core download passed SHA256 but failed the old blanket symlink prohibition. Build now validates archive-internal relative file-link chains against the full member table before tarfile data-filter extraction. Actual30144member/118link upstream table passes; synthetic safe-link extraction, absolute/outside/dangling/cyclic/ancestor/duplicate cases tested,48unitPASS. Need real target extraction/Nextcloud acceptance before passing R2/D2. LDAP fix separately verified by native CI39207315615 and real private LDAP start/populate. Overall FAIL remains.

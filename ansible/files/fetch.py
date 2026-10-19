@@ -2,6 +2,7 @@
 """Pinned HTTPS download with bounded safe extraction. No shell/tar path escape."""
 import hashlib
 import os
+import posixpath
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -16,15 +17,51 @@ def require_space(path, extra=0):
         raise ValueError('Pressure stop: archive operation would consume the 2 GiB system reserve')
 
 
+def validate_members(members, root):
+    if not 1 <= len(members) <= 50000 or sum(m.size for m in members) > 2 * 1024**3:
+        raise ValueError('Archive bounds exceeded')
+    entries = {}
+    for m in members:
+        p = PurePosixPath(m.name)
+        if p.is_absolute() or '..' in p.parts or not p.parts or p.parts[0] != root or not (m.isfile() or m.isdir() or m.issym()):
+            raise ValueError('Unsafe archive member')
+        name = str(p)
+        if name in entries:
+            raise ValueError('Duplicate archive member')
+        entries[name] = m
+    for name, m in entries.items():
+        # No archive member may be written through a file or link ancestor.
+        for parent in PurePosixPath(name).parents:
+            if str(parent) in entries and not entries[str(parent)].isdir():
+                raise ValueError('Unsafe archive ancestor')
+        if not m.issym():
+            continue
+        # Upstream includes relative licence links, occasionally in chains.
+        # Resolve only against this validated member table, never the host FS.
+        current, seen = name, set()
+        while True:
+            if current in seen or len(seen) >= 32 or current not in entries:
+                raise ValueError('Cyclic, dangling or excessive archive link')
+            seen.add(current)
+            target = entries[current]
+            for parent in PurePosixPath(current).parents:
+                if str(parent) in entries and not entries[str(parent)].isdir():
+                    raise ValueError('Unsafe link ancestor')
+            if not target.issym():
+                if not target.isfile():
+                    raise ValueError('Archive link must end at a regular file')
+                break
+            if PurePosixPath(target.linkname).is_absolute():
+                raise ValueError('Absolute archive link')
+            current = posixpath.normpath(posixpath.join(str(PurePosixPath(current).parent), target.linkname))
+            if not current.startswith(root + '/'):
+                raise ValueError('Archive link escapes application root')
+
+
 def extract(archive, destination, root):
     with tarfile.open(archive) as t:
         members = t.getmembers()
-        if not 1 <= len(members) <= 50000 or sum(m.size for m in members) > 2 * 1024**3:
-            raise ValueError('Archive bounds exceeded')
-        for m in members:
-            p = PurePosixPath(m.name)
-            if p.is_absolute() or '..' in p.parts or not p.parts or p.parts[0] != root or not (m.isfile() or m.isdir()):
-                raise ValueError('Unsafe archive member')
+        validate_members(members, root)
         # Account for filesystem blocks/inodes, not just logical tar sizes.
         require_space(archive.parent, sum(((m.size + 4095) // 4096 + 1) * 4096 for m in members))
         t.extractall(destination, filter='data')

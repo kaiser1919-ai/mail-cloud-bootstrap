@@ -50,4 +50,30 @@ class Pressure(unittest.TestCase):
         for phase in ('packages','storage','apparmor','identity','runtime','tls','cloud','mail','office','pool'):
             self.assertIn('tasks/guard.yml\n        - ansible.builtin.import_tasks: tasks/'+phase+'.yml',s)
 
+class ArchiveLinks(unittest.TestCase):
+    def members(self, links):
+        import tarfile
+        file=tarfile.TarInfo('app/license');file.size=2
+        members=[file]
+        for name,target in links:
+            m=tarfile.TarInfo(name);m.type=tarfile.SYMTYPE;m.linkname=target;members.append(m)
+        return members
+    def test_internal_file_and_chain(self):
+        f.validate_members(self.members([('app/map','license'),('app/map2','map')]),'app')
+    def test_unsafe_links(self):
+        for links in ([('app/x','/etc/passwd')],[('app/x','../../etc/passwd')],[('app/x','missing')],[('app/x','y'),('app/y','x')],[('app/x','license'),('app/x/child','../license')]):
+            with self.subTest(links=links),self.assertRaises(ValueError): f.validate_members(self.members(links),'app')
+    def test_duplicate_members(self):
+        members=self.members([])
+        with self.assertRaisesRegex(ValueError,'Duplicate'):f.validate_members(members+members,'app')
+    def test_internal_links_extract_without_escape(self):
+        import io,tarfile,tempfile
+        with tempfile.TemporaryDirectory(dir=ROOT/'tests') as work:
+            work=Path(work);archive=work/'fixture.tar'
+            members=self.members([('app/map','license'),('app/map2','map')])
+            with tarfile.open(archive,'w') as t:
+                for m in members:t.addfile(m,io.BytesIO(b'ok') if m.isfile() else None)
+            f.extract(archive,work/'out','app')
+            self.assertEqual((work/'out/app/map2').read_bytes(),b'ok')
+
 if __name__=='__main__':unittest.main()

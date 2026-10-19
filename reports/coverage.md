@@ -42,3 +42,11 @@ Verified Ubuntu adaptation code: `5430880d1e91427b84adba70679b6f955a2dfa95`, [Gi
 - Local checks: 43 unit tests pass; Ansible syntax passes. Current native CI and VPS evidence pending for this change.
 
 Evidence update: code `92e90028788c255783fae3eac4940e0888df7417`, GitHub Actions run `39206838664`: ubuntu-native and offline Python3.12/3.13 all SUCCESS. Local 43 unit tests, Ansible syntax and 20 templates ×2 profiles PASS. Live VPS installation in progress; no live acceptance claim.
+
+### Real Ubuntu test progress (2026-10-19)
+- Native packages installed on real systemd Ubuntu24.04; dense80GiB data and2GiB staging images created/mounted, AppArmor managed profiles loaded.
+- 2GiB bounded fixture write/read SHA256 PASS, fixture cleanup confirmed; root free7751073792bytes after reservation. Actual data filesystem capacity83955703808bytes, available83079892992bytes before application data (raw image80GiB, not usable80GiB).
+- First install exposed R6 bug: slaptest needs its /run directory before the LDAP service starts. Fixed in fb97c12081df6b2fc5fef8535394cef8999c60c6; native CI now removes the fixture directory and executes the actual creation task before validation. 44 local tests PASS. Resume and full stress ongoing; not full acceptance.
+
+### Pinned archive regression (R2/C3/R6)
+Official Nextcloud34.0.4 archive SHA256 matches the pinned digest. Its30144members include118relative licence symlinks, sometimes chained. Full member-table validation now permits only bounded internal chains ending at regular files; rejects duplicate paths, hardlinks, link/file ancestors, cycles/dangling/outside links and special files. 48 unit tests and syntax PASS; the actual pinned archive member table passes validation. Real target extraction/install still pending; no protection/sha/space guard disabled. Previous LDAP fix fb97c12 native CI39207315615 all3jobs SUCCESS; LDAP validation/start/populate also passed on the resumed real VPS.
