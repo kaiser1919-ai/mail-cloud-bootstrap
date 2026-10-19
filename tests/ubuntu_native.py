@@ -191,6 +191,16 @@ def main():
     children=[]
     logread,logwrite=socket.socketpair()
     try:
+        module_probe=Path('/srv/mail-cloud/nextcloud/apps/viewer/js/native-probe.mjs')
+        write(module_probe,'export const syntheticOnly=true;\n',0o644)
+        nginx=subprocess.Popen(['nginx','-g','daemon off;'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        children.append(nginx);wait(443)
+        headers=capture('curl','--noproxy','*','-fsS','--cacert',str(cert/'fullchain.pem'),'--resolve','disk.example.org:443:127.0.0.1','-D','-','https://disk.example.org/apps/viewer/js/native-probe.mjs')
+        assert 'content-type: application/javascript' in headers.lower(),headers
+        assert 'x-content-type-options: nosniff' in headers.lower(),headers
+        assert 'export const syntheticOnly=true;' in headers,headers
+        module_probe.unlink()
+        print('PASS native nginx TLS ES-module MIME and inherited nosniff header',flush=True)
         # A journald stream is a socket: /proc/self/fd/2 cannot be reopened
         # as an ordinary file. Native FPM must start with socket-backed stderr.
         fpm=subprocess.Popen(['php-fpm8.3','--nodaemonize','--fpm-config','/srv/mail-cloud/php-fpm.conf'],stderr=logwrite,stdout=subprocess.DEVNULL)

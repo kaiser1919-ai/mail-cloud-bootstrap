@@ -60,7 +60,15 @@ server {
         fastcgi_read_timeout 3600s;
         fastcgi_request_buffering off;
     }
-    location ~ \.(?:css|js|mjs|svg|gif|ico|jpg|jpeg|png|webp|wasm|tflite|map|ogg|flac|woff2?)$ {
+    # Ubuntu nginx 1.24 mime.types does not know ES modules. Browsers reject
+    # application/octet-stream modules, breaking Viewer and Office handlers.
+    location ~ \.mjs$ {
+        default_type application/javascript;
+        try_files $uri =404;
+        expires 6M;
+        access_log off;
+    }
+    location ~ \.(?:css|js|svg|gif|ico|jpg|jpeg|png|webp|wasm|tflite|map|ogg|flac|woff2?)$ {
         try_files $uri /index.php$request_uri;
         add_header Cache-Control "public, max-age=15778463";
         access_log off;

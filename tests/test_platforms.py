@@ -9,6 +9,14 @@ from unittest.mock import patch
 from test_bootstrap import ROOT, w, module
 
 class Profiles(unittest.TestCase):
+    def test_es_modules_have_explicit_javascript_mime(self):
+        nginx=(ROOT/'ansible/templates/nginx.conf.j2').read_text()
+        self.assertIn('location ~ \\.mjs$ {',nginx)
+        mjs=nginx.split('location ~ \\.mjs$ {',1)[1].split('}',1)[0]
+        self.assertIn('default_type application/javascript;',mjs)
+        self.assertIn('try_files $uri =404;',mjs)
+        self.assertNotIn('add_header',mjs)  # Preserve global security headers.
+
     def test_dkim_signs_exact_selected_domain_not_parent_domain(self):
         config=(ROOT/'ansible/templates/rspamd-dkim_signing.conf.j2').read_text()
         self.assertIn('use_domain = "envelope";',config)
