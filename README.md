@@ -2,9 +2,28 @@
 
 [Русский](README.ru.md) · [Architecture](docs/ARCHITECTURE.md) · [Operations](docs/OPERATIONS.md) · [Deployment lessons](docs/LESSONS.md)
 
+## Quick start: [installation wizard `install.sh`](install.sh)
+
+On a **new clean VPS**, from a root shell (Git and Python3 must be installed):
+
+```bash
+git clone https://github.com/kaiser1919-ai/mail-cloud-office.git
+cd mail-cloud-office
+bash install.sh
+```
+
+## Minimum server requirements
+
+- Ubuntu24.04 LTS amd64, systemd and root. Debian13 profile is included; real Debian-server acceptance is still pending.
+- Approximately **2GiB RAM + 4GiB SWAP**;4+GiB RAM preferable for Office. If swap is insufficient, the wizard explains it and offers to create the missing amount with separate consent. Existing swap is never disabled.
+- Free space on `/srv`: **pool size +25GiB after swap preparation**, default105GiB for an80GiB raw pool; up to4GiB additional disk space if swap must be created. Raw image capacity is not usable ext4 capacity.
+- A domain, static public IPv4, DNS and provider PTR control.
+- Inbound TCP80/443/25/587/993, outbound TCP25/HTTPS; native package repositories, GitHub, Nextcloud and ACME reachable. Firewall and SSH are not disabled.
+- **Not an existing mail/database/web server.** Foreign stacks, occupied ports or insufficient reserves cause refusal.
+
 > **Ubuntu24.04 test-VPS acceptance passed.** Clean install, full rerun, reboot, mail/privacy checks and native Office save/reopen passed, including bounded concurrent cloud/mail load. This is not a general production-security or deliverability certification. Use only a new clean VPS; prepare independent backup and owner MFA before real data. Debian13 server testing remains deferred. [Evidence and limits](reports/spec-review.md).
 
-One terminal wizard asks for a domain, public IPv4, ACME contact email and mailbox names. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from the native OS repository.
+One terminal wizard asks for a domain, public IPv4, ACME contact email, mailbox count and each login. It generates secrets and installs a native stack using Ansible on localhost. You do not need to write an inventory or install Ansible yourself: the wizard obtains `ansible-core` from the native OS repository.
 
 ## Stack
 
@@ -17,16 +36,6 @@ One terminal wizard asks for a domain, public IPv4, ACME contact email and mailb
 
 No Docker, AIO or Mailcow. The separate local `recovery_admin` is not a mailbox. Application versions intentionally reproduce the original setup, **not a claim that these are the latest or indefinitely supported**. Review upstream security advisories/support and test upgrades before production. OS packages come from signed native Ubuntu/Debian repositories including security updates; actual versions are recorded in `/srv/mail-cloud/state/packages.tsv`.
 
-## Requirements
-
-A **NEW, clean Ubuntu 24.04 LTS amd64 VPS**, systemd and root (primary target; Debian 13 profile retained, native-server acceptance deferred); at least approximately 2 GiB RAM plus **4 GiB swap**, with 4+ GiB RAM preferable for Office. Real load acceptance is required. Free space on `/srv`: **pool size +25 GiB**, default 105 GiB for the 80 GiB image. Filesystem overhead means usable capacity is slightly smaller; the indicator reports actual capacity.
-
-You need a domain, DNS and provider PTR control, a static public IPv4, inbound TCP **80/443/25/587/993**, outbound TCP25 and HTTPS access to OS repositories/GitHub/Nextcloud/ACME. Provider security groups/firewalls must allow those ports. The installer neither disables your firewall nor changes SSH. It cannot guarantee mail reputation, connectivity from every country or recipient acceptance.
-
-Existing Nginx/DB/Postfix/Dovecot/LDAP, occupied ports or an existing `/srv/mail-cloud` cause a refusal; there is no automatic adoption, destructive cleanup or migration. Configure swap yourself beforehand if necessary.
-
-Ubuntu adaptation checks passed on native packages: see [verification evidence](reports/ubuntu-adaptation.md). Actual Ubuntu systemd/VPS results are recorded separately in [the acceptance report](reports/spec-review.md).
-
 ## Automatic OS profiles
 
 | OS | PHP/FPM | Dovecot | Acceptance order |
@@ -36,17 +45,9 @@ Ubuntu adaptation checks passed on native packages: see [verification evidence](
 
 No additional OS-selection prompt: detection is automatic. Ubuntu **Universe** is enabled through the standard repository tool when necessary; no third-party PPA or distribution upgrade is added. The pinned Nextcloud34.0.4 metadata permits PHP8.3. All PHP helpers, FPM and cron use the chosen runtime rather than the system alternative. AppArmor is preserved: local LDAP path rules and a CODE-AppImage-only user namespace allowance, never a global sysctl disable. The targeted policies were loaded on the real test kernel and Office executed successfully; no global AppArmor disable. Resume refuses OS/profile changes; this is not an in-place Debian-to-Ubuntu migration tool.
 
-## Start
+## Wizard parameters
 
-On the new VPS, install Git/Python, clone this repository into a project directory, inspect the source, then run from a root shell in its root:
-
-```bash
-git clone https://github.com/kaiser1919-ai/mail-cloud-office.git
-cd mail-cloud-office
-bash install.sh
-```
-
-The wizard asks four questions and a single `INSTALL` confirmation. For `example.org`, defaults are `disk.example.org` and `mail.example.org`. Enter local mailbox names such as `alice,bob`; login names become full email addresses. Credentials are generated once and kept in `/etc/mail-cloud-installer/config.json` (root-only directory 0700/file 0600). **Never commit, send or publish this file.**
+The wizard asks for domain, IPv4, ACME email, **mailbox count (1–20)** and **each local login**; then `INSTALL` confirmation. If new swap is needed it separately asks for `CREATE SWAP`. For `example.org`, defaults are `disk.example.org` and `mail.example.org`. Enter each local mailbox name separately, e.g. `alice`, then `bob`; login names become full email addresses. Credentials are generated once and kept in `/etc/mail-cloud-installer/config.json` (root-only directory 0700/file 0600). For every mailbox the wizard prints the exact path and JSON key, e.g. `alice@example.org -> /etc/mail-cloud-installer/config.json : passwords["alice"]`, never the password itself. **Never commit, send or publish this file.**
 
 Advanced public parameters:
 

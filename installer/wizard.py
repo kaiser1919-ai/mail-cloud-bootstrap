@@ -15,6 +15,9 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'installer'))
+from swap_setup import prepare_swap
+
 STATE = Path('/etc/mail-cloud-installer')
 GIB = 1024**3
 
@@ -104,7 +107,7 @@ def disk_requirement(pool_gib, resume, test_mode=False):
     return ((2 if test_mode else 5) if resume else pool_gib + (8 if test_mode else 25)) * GIB
 
 
-def preflight(c, resume, test_mode=False):
+def preflight(c, resume, test_mode=False, require_swap=True):
     profile = detect_platform()
     if os.uname().machine != 'x86_64' or not Path('/run/systemd/system').is_dir():
         raise ValueError('Requires amd64 and a running systemd, not a container')
@@ -124,7 +127,7 @@ def preflight(c, resume, test_mode=False):
     if resume and shutil.disk_usage('/srv').free < disk_requirement(c['pool_gib'], True, test_mode):
         raise ValueError('Need >=' + ('2' if test_mode else '5') + ' GiB free outside the reserved images before resuming')
     mem = dict((r.split(':', 1)[0], int(r.split()[1])) for r in Path('/proc/meminfo').read_text().splitlines() if r.startswith(('MemTotal:', 'SwapTotal:')))
-    if mem['MemTotal'] < 1800 * 1024 or mem['SwapTotal'] < 4095 * 1024:
+    if mem['MemTotal'] < 1800 * 1024 or (require_swap and mem['SwapTotal'] < 4095 * 1024):
         raise ValueError('Need at least ~2 GiB RAM and 4 GiB swap (4+ GiB RAM recommended for Office)')
 
 
@@ -134,6 +137,26 @@ def run(argv):
     if argv and argv[0] == 'apt-get':
         argv = [argv[0], '-o', 'DPkg::Lock::Timeout=600', *argv[1:]]
     subprocess.run(argv, check=True, cwd=ROOT, env={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive', 'ANSIBLE_NOCOLOR': '1', 'ANSIBLE_DISPLAY_ARGS_TO_STDOUT': 'false', 'ANSIBLE_LOG_PATH': '/dev/null', 'ANSIBLE_LOCAL_TEMP': str(STATE / 'ansible-local'), 'ANSIBLE_HOME': str(STATE / 'ansible'), 'ANSIBLE_CONFIG': str(ROOT / 'ansible.cfg')})
+
+
+def ask_mailboxes():
+    text = input('Сколько почтовых ящиков? / Number of mailboxes (1–20): ').strip()
+    if not re.fullmatch(r'(?:[1-9]|1[0-9]|20)', text):
+        raise ValueError('Mailbox count must be 1–20')
+    users = []
+    for index in range(int(text)):
+        user = input(f'Логин ящика / Mailbox {index + 1}/{text}, local name (e.g. alice): ').strip()
+        if not re.fullmatch(r'[a-z][a-z0-9_]{0,30}', user) or user in ('root', 'admin', 'recovery_admin', 'postmaster', 'abuse', 'dmarc') or user in users:
+            raise ValueError('Invalid/reserved/duplicate mailbox login; use lowercase local names, not full email addresses')
+        users.append(user)
+    return users
+
+
+def credential_locations(c, stored):
+    print('Пароли сохранены / Passwords saved: root-only0600, directory0700. Do not share this file.')
+    for user in c['users']:
+        print(f'{user}@{c["domain"]} -> {stored} : passwords["{user}"]')
+    print(f'Recovery administrator (not a mailbox) -> {stored} : secrets["recovery"]')
 
 
 def main():
@@ -179,23 +202,29 @@ def main():
             print('NEW Ubuntu 24.04 LTS / Debian 13. Domains default to disk.DOMAIN and mail.DOMAIN.')
             c = validate({'domain': input('Domain: ').strip(), 'ipv4': input('Public IPv4: ').strip(),
                           'acme_email': input('Email for certificate notices: ').strip(),
-                          'users': input('Mailbox local names, comma separated (e.g. alice,bob): ').strip().split(',')})
+                          'users': ask_mailboxes()})
         print(json.dumps(c, indent=2))
-        print('This installs services on this host; does NOT change DNS. Needs 4GiB swap.')
+        print('This installs services on this host; does NOT change DNS. SWAP will be checked; creation requires separate consent.')
         print('TEST VPS: reduced disk headroom, pressure stops enabled.' if args.test_low_headroom else 'Need pool+25GiB free.')
         if input('Type INSTALL to proceed: ') != 'INSTALL':
             return
-    preflight(c, resume, args.test_low_headroom)
     profile = detect_platform()
     if resume:
         validate_resume_platform(values, profile)
         if 'platform' not in values:
             values['platform'] = profile
             atomic_json(stored, values)
+    install = not (args.check or args.open_portal)
+    preflight(c, resume, args.test_low_headroom, require_swap=not install)
+    if install:
+        prepare_swap(disk_requirement(c['pool_gib'], resume, args.test_low_headroom))
+        preflight(c, resume, args.test_low_headroom)
     if not resume:
         values = {'parameters': c, 'platform': profile, 'test_low_headroom': args.test_low_headroom, 'secrets': {k: secrets.token_hex(32) for k in ('db', 'ldap_cloud', 'ldap_mail', 'ldap_admin', 'recovery')},
                   'passwords': {u: secrets.token_urlsafe(24) for u in c['users']}}
         atomic_json(stored, values)
+    if install:
+        credential_locations(c, stored)
     if profile['os_id'] == 'ubuntu' and not (args.check or args.open_portal):
         # Standard Ubuntu component, never a third-party PPA. Also needed when
         # ansible already exists but Universe dependencies were disabled.
