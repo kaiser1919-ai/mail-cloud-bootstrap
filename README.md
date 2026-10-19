@@ -114,3 +114,11 @@ inspection. This is a filesystem stress test, not simultaneous Nextcloud/mail/
 Office acceptance. 80 GiB is the physical ext4 image size, not usable filesystem
 capacity; the UI reports actual capacity. This is not a production recommendation
 or a promise that every 100 GB disk can host the whole stack.
+
+On an isolated TEST VPS with at least two test users run
+`sudo python3 tests/cloud_acceptance.py --confirm-test-vps` for WebDAV write/read,
+cross-account isolation and wrong/cross-user password rejection. Only its own
+UUID fixtures are deleted with a per-request skip-trash header; user trash is
+never emptied. Credentials stay in memory from root-private state, TLS remains
+verified. Local testing does not require publishing the portal or bypassing MFA.
+This does not replace actual browser login, Mail/Office and reboot acceptance.

@@ -16,6 +16,11 @@ p = load('pressure', 'ansible/files/pressure_guard.py')
 f = load('fetch_pressure', 'ansible/files/fetch.py')
 
 class Pressure(unittest.TestCase):
+    def test_cloud_acceptance_requires_explicit_test_flag(self):
+        import subprocess,sys
+        result=subprocess.run([sys.executable,str(ROOT/'tests/cloud_acceptance.py')],capture_output=True,text=True)
+        self.assertEqual(result.returncode,2)
+        self.assertIn('--confirm-test-vps',result.stderr)
     def test_private_sessions_are_writable_inside_bounded_pool(self):
         config=(ROOT/'ansible/templates/php-fpm.conf.j2').read_text()
         self.assertIn('session.save_path] = /srv/mail-cloud/data/php-sessions',config)
