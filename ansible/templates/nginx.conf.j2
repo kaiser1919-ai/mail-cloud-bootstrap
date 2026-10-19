@@ -25,15 +25,13 @@ server {
     location ^~ /.well-known { return 301 /index.php$request_uri; }
     location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:$|/) { deny all; }
     location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console) { deny all; }
-    # Exact built-in CODE gateway, NOT arbitrary PHP in custom_apps.
+    # Native CODE transport must not occupy PHP workers or PHP-spawn CODE.
+    # Keep the legacy auto-start endpoint unavailable, including after opening.
     location = /custom_apps/richdocumentscode/proxy.php {
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root/custom_apps/richdocumentscode/proxy.php;
-        fastcgi_param HTTPS on;
-        fastcgi_pass unix:/run/mail-cloud-php/php.sock;
-        fastcgi_read_timeout 3600s;
-        fastcgi_request_buffering off;
+        return 404;
     }
+    location = /cool/adminws { return 404; }
+    location = /lool/adminws { return 404; }
     # Office assets and websocket endpoints stay behind the same access gate.
     location ~ ^/(?:browser|cool|hosting|lool)/ {
         proxy_pass http://127.0.0.1:9983;
@@ -43,6 +41,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $mail_cloud_connection;
+        proxy_buffering off;
         proxy_read_timeout 3600s;
     }
     location ~ \.php(?:$|/) {

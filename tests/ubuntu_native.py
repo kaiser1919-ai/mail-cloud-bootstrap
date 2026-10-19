@@ -3,6 +3,9 @@
 NOT the full installer, not a systemd/reboot/public DNS/Office acceptance test.
 """
 import imaplib
+import base64
+import hashlib
+import http.server
 import json
 import os
 from pathlib import Path
@@ -15,6 +18,7 @@ import subprocess
 import struct
 import sys
 import time
+import threading
 import urllib.request
 from email.utils import formatdate
 
@@ -36,6 +40,45 @@ def wait(port):
 
 def write(path,text,mode=0o600):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text);path.chmod(mode)
+
+def native_office_transport(cert):
+    # Native Nginx must serve CODE discovery/WebSocket without a PHP worker.
+    # The real CODE/browser acceptance remains a separate authorised VPS test.
+    class SyntheticCode(http.server.BaseHTTPRequestHandler):
+        protocol_version='HTTP/1.1'
+        def log_message(self,*args):pass
+        def do_GET(self):
+            assert self.headers['Host']=='disk.example.org'
+            if self.path=='/hosting/discovery':
+                body=b'<wopi-discovery><net-zone name="synthetic-ci-only"/></wopi-discovery>'
+                self.send_response(200);self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body)
+            elif self.path=='/cool/fixture/ws' and self.headers.get('Upgrade','').lower()=='websocket':
+                accept=base64.b64encode(hashlib.sha1((self.headers['Sec-WebSocket-Key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
+                self.send_response(101,'Switching Protocols');self.send_header('Upgrade','websocket');self.send_header('Connection','Upgrade');self.send_header('Sec-WebSocket-Accept',accept);self.end_headers();self.close_connection=True
+            else:self.send_error(404)
+    server=http.server.ThreadingHTTPServer(('127.0.0.1',9983),SyntheticCode)
+    thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:
+        args=['curl','--noproxy','*','-sS','--max-time','10','--cacert',str(cert/'fullchain.pem'),'--resolve','disk.example.org:443:127.0.0.1']
+        assert '<wopi-discovery>' in capture(*args,'-f','https://disk.example.org/hosting/discovery')
+        for path in ('/cool/adminws','/lool/adminws','/custom_apps/richdocumentscode/proxy.php?status'):
+            assert capture(*args,'-o','/dev/null','-w','%{http_code}','https://disk.example.org'+path)=='404'
+        context=ssl.create_default_context(cafile=str(cert/'fullchain.pem'))
+        key=base64.b64encode(b'syntheticOnly123').decode()
+        with socket.create_connection(('127.0.0.1',443),timeout=10) as raw:
+            with context.wrap_socket(raw,server_hostname='disk.example.org') as sock:
+                sock.sendall(('GET /cool/fixture/ws HTTP/1.1\r\nHost: disk.example.org\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: '+key+'\r\n\r\n').encode())
+                headers=b''
+                while b'\r\n\r\n' not in headers and len(headers)<16384:
+                    chunk=sock.recv(4096)
+                    if not chunk:break
+                    headers+=chunk
+                assert b'101 Switching Protocols' in headers,headers
+                expected=base64.b64encode(hashlib.sha1((key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest())
+                assert expected in headers,headers
+        print('PASS native Nginx CODE discovery/WebSocket101 without PHP; legacy auto-start/admin endpoints unavailable',flush=True)
+    finally:
+        server.shutdown();server.server_close();thread.join(timeout=5)
 
 def fpm_request(cookie='', clear=False):
     # Real FastCGI session round trip, not CLI ini emulation. No credentials
@@ -217,6 +260,7 @@ def main():
         assert 'export const syntheticOnly=true;' in headers,headers
         module_probe.unlink()
         print('PASS native nginx TLS ES-module MIME and inherited nosniff header',flush=True)
+        native_office_transport(cert)
         # A journald stream is a socket: /proc/self/fd/2 cannot be reopened
         # as an ordinary file. Native FPM must start with socket-backed stderr.
         fpm=subprocess.Popen(['php-fpm8.3','--nodaemonize','--fpm-config','/srv/mail-cloud/php-fpm.conf'],stderr=logwrite,stdout=subprocess.DEVNULL)

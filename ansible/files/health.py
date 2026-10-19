@@ -90,7 +90,7 @@ def main():
         with socket.create_connection(('127.0.0.1', 443), timeout=10) as sock:
             with context.wrap_socket(sock, server_hostname=host):
                 pass
-    text = run('curl', '-fsS', '--max-time', '90', '--resolve', c['cloud_host'] + ':443:127.0.0.1', 'https://' + c['cloud_host'] + '/custom_apps/richdocumentscode/proxy.php?req=/hosting/discovery')
+    text = run('curl', '-fsS', '--max-time', '90', '--resolve', c['cloud_host'] + ':443:127.0.0.1', 'https://' + c['cloud_host'] + '/hosting/discovery')
     if '<wopi-discovery' not in text:
         raise RuntimeError('Office gateway unavailable')
     listeners = run('ss', '-Hlnt').splitlines()

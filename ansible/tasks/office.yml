@@ -18,8 +18,8 @@
   ansible.builtin.command:
     argv: [/usr/local/lib/mail-cloud/occ, config:app:set, richdocuments, '{{ item.key }}', '--value={{ item.value }}']
   loop:
-    - {key: wopi_url, value: 'https://{{ c.cloud_host }}/custom_apps/richdocumentscode/proxy.php?req='}
-    - {key: public_wopi_url, value: 'https://{{ c.cloud_host }}/custom_apps/richdocumentscode/proxy.php?req='}
+    - {key: wopi_url, value: 'https://{{ c.cloud_host }}'}
+    - {key: public_wopi_url, value: 'https://{{ c.cloud_host }}'}
     - {key: disable_certificate_verification, value: 'no'}
 - name: Activate Office discovery
   ansible.builtin.command: /usr/local/lib/mail-cloud/occ richdocuments:activate-config
