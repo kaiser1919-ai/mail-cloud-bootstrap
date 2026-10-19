@@ -7,6 +7,14 @@ from test_bootstrap import ROOT,module
 health=module('health_routing',ROOT/'ansible/files/health.py')
 
 class LocalRouting(unittest.TestCase):
+    def test_cli_office_configuration_invalidates_web_side_cache(self):
+        tasks=yaml.safe_load((ROOT/'ansible/tasks/office.yml').read_text())
+        index=next(i for i,t in enumerate(tasks) if t.get('name')=='Refresh web PHP app-config cache after CLI WOPI updates')
+        self.assertGreater(index,next(i for i,t in enumerate(tasks) if t.get('name')=='Activate Office discovery'))
+        self.assertEqual(tasks[index]['ansible.builtin.systemd'],{'name':'mail-cloud-php','state':'restarted'})
+        self.assertEqual(tasks[index+1]['ansible.builtin.wait_for']['path'],'/run/mail-cloud-php/php.sock')
+        self.assertEqual(tasks[index+2]['ansible.builtin.command'],'systemctl is-active mail-cloud-php')
+
     def test_office_uses_native_gateway_not_php_long_poll(self):
         tasks=yaml.safe_load((ROOT/'ansible/tasks/office.yml').read_text())
         task=next(t for t in tasks if 'loop' in t)

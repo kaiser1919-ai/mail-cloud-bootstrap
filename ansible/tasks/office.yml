@@ -23,3 +23,14 @@
     - {key: disable_certificate_verification, value: 'no'}
 - name: Activate Office discovery
   ansible.builtin.command: /usr/local/lib/mail-cloud/occ richdocuments:activate-config
+- name: Refresh web PHP app-config cache after CLI WOPI updates
+  ansible.builtin.systemd:
+    name: mail-cloud-php
+    state: restarted
+- name: Wait for refreshed web PHP socket
+  ansible.builtin.wait_for:
+    path: /run/mail-cloud-php/php.sock
+    timeout: 30
+- name: Confirm refreshed PHP stays active
+  ansible.builtin.command: systemctl is-active mail-cloud-php
+  changed_when: false
